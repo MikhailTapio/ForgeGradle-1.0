@@ -107,7 +107,8 @@ public abstract class UserBasePlugin extends BasePlugin<UserExtension> {
 
                 if (graph.hasTask(path + "setupDecompWorkspace")) {
                     if (!System.getProperty("java.version").startsWith("1.7")) {
-                        throw new RuntimeException("The setupDecompWorkspace will only work with Java 7! This is fixed in ForgeGradle 1.2");
+                        //throw new RuntimeException("The setupDecompWorkspace will only work with Java 7! This is fixed in ForgeGradle 1.2");
+                        System.out.println("Let's see if we can go ahead using another Java versions lol");
                     }
                 }
                 return null;
