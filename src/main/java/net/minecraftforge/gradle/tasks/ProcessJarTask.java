@@ -1,30 +1,14 @@
 package net.minecraftforge.gradle.tasks;
 
-import java.io.BufferedOutputStream;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Set;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipFile;
-import java.util.zip.ZipOutputStream;
-
+import com.google.common.io.ByteStreams;
+import de.oceanlabs.mcp.mcinjector.MCInjectorImpl;
 import joptsimple.internal.Strings;
-import net.md_5.specialsource.AccessMap;
-import net.md_5.specialsource.Jar;
-import net.md_5.specialsource.JarMapping;
-import net.md_5.specialsource.JarRemapper;
-import net.md_5.specialsource.RemapperPreprocessor;
+import net.md_5.specialsource.*;
 import net.md_5.specialsource.provider.JarProvider;
 import net.md_5.specialsource.provider.JointProvider;
 import net.minecraftforge.gradle.common.Constants;
 import net.minecraftforge.gradle.delayed.DelayedFile;
 import net.minecraftforge.gradle.tasks.abstractutil.CachedTask;
-
 import org.gradle.api.file.FileCollection;
 import org.gradle.api.tasks.InputFile;
 import org.gradle.api.tasks.InputFiles;
@@ -34,49 +18,50 @@ import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.tree.ClassNode;
 
-import com.google.common.io.ByteStreams;
+import java.io.BufferedOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.util.*;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
+import java.util.zip.ZipOutputStream;
 
-import de.oceanlabs.mcp.mcinjector.MCInjectorImpl;
-
-public class ProcessJarTask extends CachedTask
-{
+public class ProcessJarTask extends CachedTask {
     @InputFile
-    private DelayedFile            inJar;
+    private DelayedFile inJar;
 
     @InputFile
-    private DelayedFile            srg;
+    private DelayedFile srg;
 
     @InputFile
-    private DelayedFile            exceptorCfg;
+    private DelayedFile exceptorCfg;
 
     @OutputFile
     @Cached
-    private DelayedFile            outCleanJar;                                                     // clean = pure forge, or pure FML
+    private DelayedFile outCleanJar;                                                     // clean = pure forge, or pure FML
 
     @OutputFile
     @Cached
-    private DelayedFile            outDirtyJar = new DelayedFile(getProject(), Constants.DEOBF_JAR); // dirty = has any other ATs
+    private DelayedFile outDirtyJar = new DelayedFile(getProject(), Constants.DEOBF_JAR); // dirty = has any other ATs
 
-    private ArrayList<DelayedFile> ats         = new ArrayList<DelayedFile>();
+    private ArrayList<DelayedFile> ats = new ArrayList<DelayedFile>();
 
-    private boolean                isClean     = true;
+    private boolean isClean = true;
 
-    public void addTransformer(DelayedFile... obj)
-    {
-        for (DelayedFile object : obj)
-        {
+    public void addTransformer(DelayedFile... obj) {
+        for (DelayedFile object : obj) {
             ats.add(object);
         }
     }
 
     /**
      * adds an access transformer to the deobfuscation of this
+     *
      * @param obj
      */
-    public void addTransformer(Object... obj)
-    {
-        for (Object object : obj)
-        {
+    public void addTransformer(Object... obj) {
+        for (Object object : obj) {
             if (object instanceof File)
                 ats.add(new DelayedFile(getProject(), ((File) object).getAbsolutePath()));
             else if (object instanceof String)
@@ -89,16 +74,14 @@ public class ProcessJarTask extends CachedTask
     }
 
     @TaskAction
-    public void doTask() throws IOException
-    {
+    public void doTask() throws IOException {
         // make stuff into files.
         File tempObfJar = new File(getTemporaryDir(), "deobfed.jar"); // courtesy of gradle temp dir.
         File tempExcJar = new File(getTemporaryDir(), "excepted.jar"); // courtesy of gradle temp dir.
 
         // make the ATs list.. its a Set to avoid duplication.
         Set<File> ats = new HashSet<File>();
-        for (DelayedFile obj : this.ats)
-        {
+        for (DelayedFile obj : this.ats) {
             ats.add(getProject().file(obj).getCanonicalFile());
         }
 
@@ -116,8 +99,7 @@ public class ProcessJarTask extends CachedTask
         injectSourceInfo(tempExcJar, out);
     }
 
-    private void deobfJar(File inJar, File outJar, File srg, Collection<File> ats) throws IOException
-    {
+    private void deobfJar(File inJar, File outJar, File srg, Collection<File> ats) throws IOException {
         getLogger().debug("INPUT: " + inJar);
         getLogger().debug("OUTPUT: " + outJar);
         // load mapping
@@ -127,8 +109,7 @@ public class ProcessJarTask extends CachedTask
         // load in ATs
         AccessMap accessMap = new AccessMap();
         getLogger().info("Using AccessTransformers...");
-        for (File at : ats)
-        {
+        for (File at : ats) {
             getLogger().info("" + at);
             accessMap.loadAccessTransformer(at);
         }
@@ -151,8 +132,7 @@ public class ProcessJarTask extends CachedTask
         remapper.remapJar(input, outJar);
     }
 
-    public void applyExceptor(File inJar, File outJar, File config, File log) throws IOException
-    {
+    public void applyExceptor(File inJar, File outJar, File config, File log) throws IOException {
         getLogger().debug("INPUT: " + inJar);
         getLogger().debug("OUTPUT: " + outJar);
         getLogger().debug("CONFIG: " + config);
@@ -167,22 +147,17 @@ public class ProcessJarTask extends CachedTask
                 false);
     }
 
-    private void injectSourceInfo(File inJar, File outJar) throws IOException
-    {
+    private void injectSourceInfo(File inJar, File outJar) throws IOException {
         ZipFile in = new ZipFile(inJar);
         final ZipOutputStream out = new ZipOutputStream(new BufferedOutputStream(new FileOutputStream(outJar)));
 
-        for (ZipEntry e : Collections.list(in.entries()))
-        {
+        for (ZipEntry e : Collections.list(in.entries())) {
             if (e.getName().contains("META-INF"))
                 continue;
 
-            if (e.isDirectory())
-            {
+            if (e.isDirectory()) {
                 out.putNextEntry(e);
-            }
-            else
-            {
+            } else {
                 ZipEntry n = new ZipEntry(e.getName());
                 n.setTime(e.getTime());
                 out.putNextEntry(n);
@@ -202,8 +177,7 @@ public class ProcessJarTask extends CachedTask
         in.close();
     }
 
-    private byte[] correctSourceName(String name, byte[] data)
-    {
+    private byte[] correctSourceName(String name, byte[] data) {
         ClassReader reader = new ClassReader(data);
         ClassNode node = new ClassNode();
 
@@ -217,58 +191,47 @@ public class ProcessJarTask extends CachedTask
         return writer.toByteArray();
     }
 
-    public File getExceptorCfg()
-    {
+    public File getExceptorCfg() {
         return exceptorCfg.call();
     }
 
-    public void setExceptorCfg(DelayedFile exceptorCfg)
-    {
+    public void setExceptorCfg(DelayedFile exceptorCfg) {
         this.exceptorCfg = exceptorCfg;
     }
 
-    public File getInJar()
-    {
+    public File getInJar() {
         return inJar.call();
     }
 
-    public void setInJar(DelayedFile inJar)
-    {
+    public void setInJar(DelayedFile inJar) {
         this.inJar = inJar;
     }
 
-    public File getSrg()
-    {
+    public File getSrg() {
         return srg.call();
     }
 
-    public void setSrg(DelayedFile srg)
-    {
+    public void setSrg(DelayedFile srg) {
         this.srg = srg;
     }
 
-    public File getOutCleanJar()
-    {
+    public File getOutCleanJar() {
         return outCleanJar.call();
     }
 
-    public void setOutCleanJar(DelayedFile outJar)
-    {
+    public void setOutCleanJar(DelayedFile outJar) {
         this.outCleanJar = outJar;
     }
 
-    public File getOutDirtyJar()
-    {
+    public File getOutDirtyJar() {
         return outDirtyJar.call();
     }
 
-    public void setOutDirtyJar(DelayedFile outDirtyJar)
-    {
+    public void setOutDirtyJar(DelayedFile outDirtyJar) {
         this.outDirtyJar = outDirtyJar;
     }
 
-    public boolean isClean()
-    {
+    public boolean isClean() {
         return isClean;
     }
 
@@ -276,27 +239,23 @@ public class ProcessJarTask extends CachedTask
      * returns the actual output DelayedFile depending on Clean status
      * Unlike getOutputJar() this method does not resolve the files.
      */
-    public DelayedFile getDelayedOutput()
-    {
+    public DelayedFile getDelayedOutput() {
         return isClean ? outCleanJar : outDirtyJar;
     }
 
     /**
      * returns the actual output file depending on Clean status
      */
-    public File getOutJar()
-    {
+    public File getOutJar() {
         return isClean ? outCleanJar.call() : outDirtyJar.call();
     }
-    
-    public void setDirty()
-    {
+
+    public void setDirty() {
         isClean = false;
     }
 
     @InputFiles
-    public FileCollection getAts()
-    {
+    public FileCollection getAts() {
         return getProject().files(ats.toArray());
     }
 }

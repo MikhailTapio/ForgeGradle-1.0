@@ -1,16 +1,8 @@
 package net.minecraftforge.gradle.tasks.user;
 
-import java.io.File;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.regex.Pattern;
-
+import com.google.common.base.Charsets;
+import com.google.common.io.Files;
 import net.minecraftforge.gradle.delayed.DelayedFile;
-
 import org.gradle.api.DefaultTask;
 import org.gradle.api.file.DirectoryTree;
 import org.gradle.api.file.FileCollection;
@@ -22,26 +14,30 @@ import org.gradle.api.tasks.OutputDirectory;
 import org.gradle.api.tasks.TaskAction;
 import org.gradle.api.tasks.util.PatternSet;
 
-import com.google.common.base.Charsets;
-import com.google.common.io.Files;
+import java.io.File;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.regex.Pattern;
 
-public class SourceCopyTask extends DefaultTask
-{
+public class SourceCopyTask extends DefaultTask {
     @InputFiles
-    SourceDirectorySet      source;
+    SourceDirectorySet source;
 
     @Input
     HashMap<String, String> replacements = new HashMap<String, String>();
 
     @Input
-    ArrayList<String>       includes     = new ArrayList<String>();
+    ArrayList<String> includes = new ArrayList<String>();
 
     @OutputDirectory
-    DelayedFile             output;
+    DelayedFile output;
 
     @TaskAction
-    public void doTask() throws IOException
-    {
+    public void doTask() throws IOException {
         getLogger().info("INPUTS >> " + source);
         getLogger().info("OUTPUTS >> " + getOutput());
         getLogger().info("REPLACE >> " + replacements);
@@ -60,8 +56,7 @@ public class SourceCopyTask extends DefaultTask
         out = out.getCanonicalFile();
 
         // start traversing tree
-        for (DirectoryTree dirTree : source.getSrcDirTrees())
-        {
+        for (DirectoryTree dirTree : source.getSrcDirTrees()) {
             File dir = dirTree.getDir();
             getLogger().info("PARSING DIR >> " + dir);
 
@@ -75,14 +70,12 @@ public class SourceCopyTask extends DefaultTask
             // because later on gradle casts it directly to PatternSet and crashes
             FileTree tree = getProject().fileTree(dir).matching(source.getFilter()).matching(patterns);
 
-            for (File file : tree)
-            {
+            for (File file : tree) {
                 File dest = getDest(file, dir, out);
                 dest.getParentFile().mkdirs();
                 dest.createNewFile();
 
-                if (isIncluded(file))
-                {
+                if (isIncluded(file)) {
                     getLogger().debug("PARSING FILE IN >> " + file);
                     String text = Files.toString(file, Charsets.UTF_8);
 
@@ -91,29 +84,24 @@ public class SourceCopyTask extends DefaultTask
 
                     getLogger().debug("PARSING FILE OUT >> " + dest);
                     Files.write(text, dest, Charsets.UTF_8);
-                }
-                else
-                {
+                } else {
                     Files.copy(file, dest);
                 }
             }
         }
     }
 
-    private File getDest(File in, File base, File baseOut) throws IOException
-    {
+    private File getDest(File in, File base, File baseOut) throws IOException {
         String relative = in.getCanonicalPath().replace(base.getCanonicalPath(), "");
         return new File(baseOut, relative);
     }
 
-    private boolean isIncluded(File file) throws IOException
-    {
+    private boolean isIncluded(File file) throws IOException {
         if (includes.isEmpty())
             return true;
 
         String path = file.getCanonicalPath().replace('\\', '/');
-        for (String include : includes)
-        {
+        for (String include : includes) {
             if (path.endsWith(include.replace('\\', '/')))
                 return true;
         }
@@ -121,21 +109,14 @@ public class SourceCopyTask extends DefaultTask
         return false;
     }
 
-    private boolean deleteDir(File dir)
-    {
-        if (dir.exists())
-        {
+    private boolean deleteDir(File dir) {
+        if (dir.exists()) {
             File[] files = dir.listFiles();
-            if (null != files)
-            {
-                for (int i = 0; i < files.length; i++)
-                {
-                    if (files[i].isDirectory())
-                    {
+            if (null != files) {
+                for (int i = 0; i < files.length; i++) {
+                    if (files[i].isDirectory()) {
                         deleteDir(files[i]);
-                    }
-                    else
-                    {
+                    } else {
                         files[i].delete();
                     }
                 }
@@ -144,56 +125,45 @@ public class SourceCopyTask extends DefaultTask
         return (dir.delete());
     }
 
-    public File getOutput()
-    {
+    public File getOutput() {
         return output.call();
     }
 
-    public void setOutput(DelayedFile output)
-    {
+    public void setOutput(DelayedFile output) {
         this.output = output;
     }
 
-    public void setSource(SourceDirectorySet source)
-    {
+    public void setSource(SourceDirectorySet source) {
         this.source = source;
     }
 
-    public FileCollection getSource()
-    {
+    public FileCollection getSource() {
         return source;
     }
 
-    public void replace(String key, String val)
-    {
+    public void replace(String key, String val) {
         replacements.put(key, val);
     }
 
-    public void replace(Map<String, String> map)
-    {
-        for (Entry<String, String> e : map.entrySet())
-        {
+    public void replace(Map<String, String> map) {
+        for (Entry<String, String> e : map.entrySet()) {
             replace(Pattern.quote(e.getKey()), e.getValue());
         }
     }
 
-    public HashMap<String, String> getReplacements()
-    {
+    public HashMap<String, String> getReplacements() {
         return replacements;
     }
 
-    public void include(String str)
-    {
+    public void include(String str) {
         includes.add(str);
     }
 
-    public void include(List<String> strs)
-    {
+    public void include(List<String> strs) {
         includes.addAll(strs);
     }
 
-    public ArrayList<String> getIncudes()
-    {
+    public ArrayList<String> getIncudes() {
         return includes;
     }
 }

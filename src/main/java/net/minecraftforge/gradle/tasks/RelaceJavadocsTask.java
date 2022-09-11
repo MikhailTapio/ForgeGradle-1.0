@@ -1,50 +1,40 @@
 package net.minecraftforge.gradle.tasks;
 
-import java.io.File;
-import java.io.IOException;
-import java.nio.charset.Charset;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
+import au.com.bytecode.opencsv.CSVParser;
+import au.com.bytecode.opencsv.CSVReader;
+import com.google.common.base.Joiner;
+import com.google.common.base.Strings;
+import com.google.common.io.Files;
 import net.minecraftforge.gradle.StringUtils;
 import net.minecraftforge.gradle.common.Constants;
 import net.minecraftforge.gradle.delayed.DelayedFile;
 import net.minecraftforge.gradle.tasks.abstractutil.EditJarTask;
-
 import org.gradle.api.tasks.InputFile;
 
-import au.com.bytecode.opencsv.CSVParser;
-import au.com.bytecode.opencsv.CSVReader;
+import java.io.File;
+import java.io.IOException;
+import java.nio.charset.Charset;
+import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
-import com.google.common.base.Joiner;
-import com.google.common.base.Strings;
-import com.google.common.io.Files;
-
-public class RelaceJavadocsTask extends EditJarTask
-{
+public class RelaceJavadocsTask extends EditJarTask {
     @InputFile
-    private DelayedFile                            methodsCsv;
+    private DelayedFile methodsCsv;
 
     @InputFile
-    private DelayedFile                            fieldsCsv;
+    private DelayedFile fieldsCsv;
 
     private final Map<String, Map<String, String>> methods = new HashMap<String, Map<String, String>>();
-    private final Map<String, Map<String, String>> fields  = new HashMap<String, Map<String, String>>();
+    private final Map<String, Map<String, String>> fields = new HashMap<String, Map<String, String>>();
 
-    private static final Pattern                   METHOD  = Pattern.compile("^( {4}|\\t)// JAVADOC METHOD \\$\\$ (func\\_\\d+)$");
-    private static final Pattern                   FIELD   = Pattern.compile("^( {4}|\\t)// JAVADOC FIELD \\$\\$ (func\\_\\d+)$");
+    private static final Pattern METHOD = Pattern.compile("^( {4}|\\t)// JAVADOC METHOD \\$\\$ (func\\_\\d+)$");
+    private static final Pattern FIELD = Pattern.compile("^( {4}|\\t)// JAVADOC FIELD \\$\\$ (func\\_\\d+)$");
 
     @Override
-    public void doStuffBefore() throws Throwable
-    {
+    public void doStuffBefore() throws Throwable {
         CSVReader reader = getReader(getMethodsCsv());
-        for (String[] s : reader.readAll())
-        {
+        for (String[] s : reader.readAll()) {
             Map<String, String> temp = new HashMap<String, String>();
             temp.put("name", s[1]);
             temp.put("javadoc", s[3]);
@@ -52,8 +42,7 @@ public class RelaceJavadocsTask extends EditJarTask
         }
 
         reader = getReader(getFieldsCsv());
-        for (String[] s : reader.readAll())
-        {
+        for (String[] s : reader.readAll()) {
             Map<String, String> temp = new HashMap<String, String>();
             temp.put("name", s[1]);
             temp.put("javadoc", s[3]);
@@ -61,46 +50,37 @@ public class RelaceJavadocsTask extends EditJarTask
         }
     }
 
-    public static CSVReader getReader(File file) throws IOException
-    {
+    public static CSVReader getReader(File file) throws IOException {
         return new CSVReader(Files.newReader(file, Charset.defaultCharset()), CSVParser.DEFAULT_SEPARATOR, CSVParser.DEFAULT_QUOTE_CHARACTER, CSVParser.DEFAULT_ESCAPE_CHARACTER, 1, false);
     }
 
     @Override
-    public String asRead(String text)
-    {
+    public String asRead(String text) {
         Matcher matcher;
 
         String prevLine = null;
         ArrayList<String> newLines = new ArrayList<String>();
         //ImmutableList<String> lines = StringUtils.lines(text);
-        for (String line : StringUtils.lines(text))
-        {
+        for (String line : StringUtils.lines(text)) {
             //String line = lines.get(i);
-            
+
             // check method
             matcher = METHOD.matcher(line);
 
-            if (matcher.find())
-            {
+            if (matcher.find()) {
                 String name = matcher.group(2);
 
-                if (methods.containsKey(name) && methods.get(name).containsKey("name"))
-                {
+                if (methods.containsKey(name) && methods.get(name).containsKey("name")) {
                     // get javadoc
                     String javadoc = methods.get(name).get("javadoc");
-                    
-                    if (Strings.isNullOrEmpty(javadoc))
-                    {
+
+                    if (Strings.isNullOrEmpty(javadoc)) {
                         line = ""; // just delete the marker
-                    }
-                    else
-                    {
+                    } else {
                         // replace the marker
                         line = buildJavadoc(matcher.group(1), javadoc, true);
 
-                        if (!Strings.isNullOrEmpty(prevLine) && !prevLine.endsWith("{"))
-                        {
+                        if (!Strings.isNullOrEmpty(prevLine) && !prevLine.endsWith("{")) {
                             line = Constants.NEWLINE + line;
                         }
                     }
@@ -110,26 +90,20 @@ public class RelaceJavadocsTask extends EditJarTask
             // check field
             matcher = FIELD.matcher(line);
 
-            if (matcher.find())
-            {
+            if (matcher.find()) {
                 String name = matcher.group(2);
 
-                if (fields.containsKey(name))
-                {
+                if (fields.containsKey(name)) {
                     // get javadoc
                     String javadoc = fields.get(name).get("javadoc");
-                    
-                    if (Strings.isNullOrEmpty(javadoc))
-                    {
+
+                    if (Strings.isNullOrEmpty(javadoc)) {
                         line = ""; // just delete the marker
-                    }
-                    else
-                    {
+                    } else {
                         // replace the marker
                         line = buildJavadoc(matcher.group(1), javadoc, false);
 
-                        if (!Strings.isNullOrEmpty(prevLine) && !prevLine.endsWith("{"))
-                        {
+                        if (!Strings.isNullOrEmpty(prevLine) && !prevLine.endsWith("{")) {
                             line = Constants.NEWLINE + line;
                         }
                     }
@@ -142,21 +116,18 @@ public class RelaceJavadocsTask extends EditJarTask
 
         return Joiner.on(Constants.NEWLINE).join(newLines);
     }
-    
-    private String buildJavadoc(String indent, String javadoc, boolean isMethod)
-    {
+
+    private String buildJavadoc(String indent, String javadoc, boolean isMethod) {
         StringBuilder builder = new StringBuilder();
 
-        if (javadoc.length() >= 70 || isMethod)
-        {
+        if (javadoc.length() >= 70 || isMethod) {
             List<String> list = wrapText(javadoc, 120 - (indent.length() + 3));
 
             builder.append(indent);
             builder.append("/**");
             builder.append(Constants.NEWLINE);
 
-            for (String line : list)
-            {
+            for (String line : list) {
                 builder.append(indent);
                 builder.append(" * ");
                 builder.append(line);
@@ -169,8 +140,7 @@ public class RelaceJavadocsTask extends EditJarTask
 
         }
         // one line
-        else
-        {
+        else {
             builder.append(indent);
             builder.append("/** ");
             builder.append(javadoc);
@@ -180,24 +150,20 @@ public class RelaceJavadocsTask extends EditJarTask
 
         return builder.toString().replace(indent, indent);
     }
-    
-    private static List<String> wrapText(String text, int len)
-    {
+
+    private static List<String> wrapText(String text, int len) {
         // return empty array for null text
-        if (text == null)
-        {
+        if (text == null) {
             return new ArrayList<String>();
         }
 
         // return text if len is zero or less
-        if (len <= 0)
-        {
+        if (len <= 0) {
             return new ArrayList<String>(Arrays.asList(text));
         }
 
         // return text if less than length
-        if (text.length() <= len)
-        {
+        if (text.length() <= len) {
             return new ArrayList<String>(Arrays.asList(text));
         }
 
@@ -207,11 +173,9 @@ public class RelaceJavadocsTask extends EditJarTask
         int tempNum;
 
         // each char in array
-        for (char c : text.toCharArray())
-        {
+        for (char c : text.toCharArray()) {
             // its a wordBreaking character.
-            if (c == ' ' || c == ',' || c == '-')
-            {
+            if (c == ' ' || c == ',' || c == '-') {
                 // add the character to the word
                 word.append(c);
 
@@ -219,8 +183,7 @@ public class RelaceJavadocsTask extends EditJarTask
                 tempNum = Character.isWhitespace(c) ? 1 : 0;
 
                 // subtract tempNum from the length of the word
-                if ((line.length() + word.length() - tempNum) > len)
-                {
+                if ((line.length() + word.length() - tempNum) > len) {
                     lines.add(line.toString());
                     line.delete(0, line.length());
                 }
@@ -231,18 +194,15 @@ public class RelaceJavadocsTask extends EditJarTask
 
             }
             // not a linebreak char
-            else
-            {
+            else {
                 // add it to the word and move on
                 word.append(c);
             }
         }
 
         // handle any extra chars in current word
-        if (word.length() > 0)
-        {
-            if ((line.length() + word.length()) > len)
-            {
+        if (word.length() > 0) {
+            if ((line.length() + word.length()) > len) {
                 lines.add(line.toString());
                 line.delete(0, line.length());
             }
@@ -250,46 +210,38 @@ public class RelaceJavadocsTask extends EditJarTask
         }
 
         // handle extra line
-        if (line.length() > 0)
-        {
+        if (line.length() > 0) {
             lines.add(line.toString());
         }
 
         List<String> temp = new ArrayList<String>(lines.size());
-        for (String s : lines)
-        {
+        for (String s : lines) {
             temp.add(s.trim());
         }
         return temp;
     }
 
     @Override
-    public void doStuffMiddle() throws Throwable
-    {
+    public void doStuffMiddle() throws Throwable {
     }
 
     @Override
-    public void doStuffAfter() throws Throwable
-    {
+    public void doStuffAfter() throws Throwable {
     }
 
-    public File getMethodsCsv()
-    {
+    public File getMethodsCsv() {
         return methodsCsv.call();
     }
 
-    public void setMethodsCsv(DelayedFile methodsCsv)
-    {
+    public void setMethodsCsv(DelayedFile methodsCsv) {
         this.methodsCsv = methodsCsv;
     }
 
-    public File getFieldsCsv()
-    {
+    public File getFieldsCsv() {
         return fieldsCsv.call();
     }
 
-    public void setFieldsCsv(DelayedFile fieldsCsv)
-    {
+    public void setFieldsCsv(DelayedFile fieldsCsv) {
         this.fieldsCsv = fieldsCsv;
     }
 }

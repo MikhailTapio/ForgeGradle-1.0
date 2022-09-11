@@ -1,59 +1,49 @@
 package net.minecraftforge.gradle.common;
 
-import java.util.LinkedList;
-
 import org.gradle.api.Project;
 
-public class BaseExtension
-{
+import java.util.LinkedList;
+
+public class BaseExtension {
     protected Project project;
     protected String version = "null";
     protected String mcpVersion = "unknown";
     protected String assetDir = "eclipse/assets";
     private LinkedList<String> srgExtra = new LinkedList<String>();
 
-    public BaseExtension(Project project)
-    {
+    public BaseExtension(Project project) {
         this.project = project;
     }
 
-    public String getVersion()
-    {
+    public String getVersion() {
         return version;
     }
 
-    public void setVersion(String version)
-    {
+    public void setVersion(String version) {
         this.version = version;
     }
 
-    public String getMcpVersion()
-    {
+    public String getMcpVersion() {
         return mcpVersion;
     }
 
-    public void setMcpVersion(String mcpVersion)
-    {
+    public void setMcpVersion(String mcpVersion) {
         this.mcpVersion = mcpVersion;
     }
 
-    public void setAssetDir(String value)
-    {
+    public void setAssetDir(String value) {
         this.assetDir = value;
     }
 
-    public String getAssetDir()
-    {
+    public String getAssetDir() {
         return this.assetDir;
     }
 
-    public LinkedList<String> getSrgExtra()
-    {
+    public LinkedList<String> getSrgExtra() {
         return srgExtra;
     }
-    
-    public void srgExtra(String in)
-    {
+
+    public void srgExtra(String in) {
         srgExtra.add(in);
     }
 }

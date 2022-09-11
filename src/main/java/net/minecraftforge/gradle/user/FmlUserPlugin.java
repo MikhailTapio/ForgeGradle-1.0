@@ -1,23 +1,20 @@
 package net.minecraftforge.gradle.user;
 
-import static net.minecraftforge.gradle.user.UserConstants.*;
-
-import java.io.File;
-
-import org.gradle.api.Task;
-import org.gradle.api.tasks.bundling.Zip;
-
 import net.minecraftforge.gradle.common.Constants;
 import net.minecraftforge.gradle.delayed.DelayedFile;
 import net.minecraftforge.gradle.tasks.PatchJarTask;
 import net.minecraftforge.gradle.tasks.ProcessJarTask;
 import net.minecraftforge.gradle.tasks.RemapSourcesTask;
+import org.gradle.api.Task;
+import org.gradle.api.tasks.bundling.Zip;
 
-public class FmlUserPlugin extends UserBasePlugin
-{
+import java.io.File;
+
+import static net.minecraftforge.gradle.user.UserConstants.*;
+
+public class FmlUserPlugin extends UserBasePlugin {
     @Override
-    public void applyPlugin()
-    {
+    public void applyPlugin() {
         super.applyPlugin();
 
         ProcessJarTask procTask = (ProcessJarTask) project.getTasks().getByName("deobfBinJar");
@@ -25,49 +22,44 @@ public class FmlUserPlugin extends UserBasePlugin
             procTask.setInJar(delayedFile(FML_BINPATCHED));
             procTask.setOutCleanJar(delayedFile(FML_DEOBF_MCP));
         }
-        
+
         procTask = (ProcessJarTask) project.getTasks().getByName("deobfuscateJar");
         {
             procTask.setOutCleanJar(delayedFile(FML_DEOBF_SRG));
         }
-        
+
         Task task = project.getTasks().getByName("setupDecompWorkspace");
         task.dependsOn("remapJar");
     }
 
     @Override
-    public void afterEvaluate()
-    {
+    public void afterEvaluate() {
         project.getDependencies().add(CONFIG_USERDEV, "cpw.mods:fml:" + getExtension().getApiVersion() + ":userdev");
-        
+
         super.afterEvaluate();
     }
 
     @Override
-    protected void addATs(ProcessJarTask task)
-    {
+    protected void addATs(ProcessJarTask task) {
         task.addTransformer(delayedFile(FML_AT));
     }
-    
+
     @Override
-    protected DelayedFile getBinPatchOut()
-    {
+    protected DelayedFile getBinPatchOut() {
         return delayedFile(FML_BINPATCHED);
     }
 
     @Override
-    protected DelayedFile getDecompOut()
-    {
+    protected DelayedFile getDecompOut() {
         return delayedFile(FML_DECOMP);
     }
 
     @Override
-    protected void doPostDecompTasks(boolean isClean, DelayedFile decompOut)
-    {
+    protected void doPostDecompTasks(boolean isClean, DelayedFile decompOut) {
         DelayedFile fmled = delayedFile(isClean ? FML_FMLED : Constants.DECOMP_FMLED);
         DelayedFile injected = delayedFile(isClean ? FML_INJECTED : Constants.DECOMP_FMLINJECTED);
         DelayedFile remapped = delayedFile(isClean ? FML_REMAPPED : Constants.DECOMP_REMAPPED);
-        
+
         PatchJarTask fmlPatches = makeTask("doFmlPatches", PatchJarTask.class);
         {
             fmlPatches.dependsOn("decompile");
@@ -75,19 +67,19 @@ public class FmlUserPlugin extends UserBasePlugin
             fmlPatches.setOutJar(fmled);
             fmlPatches.setInPatches(delayedFile(FML_PATCHES_ZIP));
         }
-        
+
         Zip inject = makeTask("addFmlSources", Zip.class);
         {
             inject.dependsOn("doFmlPatches");
             inject.from(fmled.toZipTree());
             inject.from(delayedFile(SRC_DIR));
             inject.from(delayedFile(RES_DIR));
-            
+
             File injectFile = injected.call();
             inject.setDestinationDir(injectFile.getParentFile());
             inject.setArchiveName(injectFile.getName());
         }
-        
+
         RemapSourcesTask remap = makeTask("remapJar", RemapSourcesTask.class);
         {
             remap.dependsOn("addFmlSources");
@@ -98,7 +90,7 @@ public class FmlUserPlugin extends UserBasePlugin
             remap.setParamsCsv(delayedFile(PARAM_CSV));
             remap.setDoesJavadocs(true);
         }
-        
+
         project.getDependencies().add(CONFIG_API_SRC, project.files(remapped));
     }
 }

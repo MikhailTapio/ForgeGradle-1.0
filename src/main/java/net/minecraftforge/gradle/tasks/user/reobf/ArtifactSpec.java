@@ -1,154 +1,153 @@
 package net.minecraftforge.gradle.tasks.user.reobf;
 
+import com.google.common.io.Files;
 import groovy.lang.Closure;
+import joptsimple.internal.Strings;
+import org.gradle.api.Project;
+import org.gradle.api.artifacts.PublishArtifact;
+import org.gradle.api.tasks.bundling.AbstractArchiveTask;
 
 import java.io.File;
 
-import joptsimple.internal.Strings;
-
-import org.gradle.api.artifacts.PublishArtifact;
-import org.gradle.api.tasks.bundling.AbstractArchiveTask;
-import org.gradle.api.Project;
-import com.google.common.io.Files;
-
-public class ArtifactSpec
-{
-    private Object  baseName;
-    private Object  appendix;
-    private Object  version;
-    private Object  classifier;
-    private Object  extension;
-    private Object  archiveName;
-    private Object  classpath;
+public class ArtifactSpec {
+    private Object baseName;
+    private Object appendix;
+    private Object version;
+    private Object classifier;
+    private Object extension;
+    private Object archiveName;
+    private Object classpath;
 
     private Project project;
 
     private boolean archiveSet = false;
 
-    public ArtifactSpec(Project proj)
-    {
+    public ArtifactSpec(Project proj) {
         project = proj;
     }
 
-    public ArtifactSpec(File file, Project proj)
-    {
+    public ArtifactSpec(File file, Project proj) {
         archiveName = file.getName();
         extension = Files.getFileExtension(file.getName());
         project = proj;
     }
 
-    public ArtifactSpec(String file, Project proj)
-    {
+    public ArtifactSpec(String file, Project proj) {
         archiveName = file;
         extension = Files.getFileExtension(file);
         project = proj;
     }
 
-    public ArtifactSpec(PublishArtifact artifact, Project proj)
-    {
+    public ArtifactSpec(PublishArtifact artifact, Project proj) {
         baseName = artifact.getName();
         classifier = artifact.getClassifier();
         extension = artifact.getExtension();
         project = proj;
     }
 
-    @SuppressWarnings({ "serial", "rawtypes" })
-    public ArtifactSpec(final AbstractArchiveTask task)
-    {
+    @SuppressWarnings({"serial", "rawtypes"})
+    public ArtifactSpec(final AbstractArchiveTask task) {
         project = task.getProject();
-        baseName = new Closure(null) { public Object call() {return task.getBaseName();} };
-        appendix = new Closure(null) { public Object call() {return task.getAppendix();} };
-        version = new Closure(null) { public Object call() {return task.getVersion();} };
-        classifier = new Closure(null) { public Object call() {return task.getClassifier();} };
-        extension = new Closure(null) { public Object call() {return task.getExtension();} };
-        classpath = new Closure(null) { public Object call() {return task.getSource();} };
+        baseName = new Closure(null) {
+            public Object call() {
+                return task.getBaseName();
+            }
+        };
+        appendix = new Closure(null) {
+            public Object call() {
+                return task.getAppendix();
+            }
+        };
+        version = new Closure(null) {
+            public Object call() {
+                return task.getVersion();
+            }
+        };
+        classifier = new Closure(null) {
+            public Object call() {
+                return task.getClassifier();
+            }
+        };
+        extension = new Closure(null) {
+            public Object call() {
+                return task.getExtension();
+            }
+        };
+        classpath = new Closure(null) {
+            public Object call() {
+                return task.getSource();
+            }
+        };
     }
 
-    public Object getBaseName()
-    {
+    public Object getBaseName() {
         return baseName;
     }
 
-    public void setBaseName(Object baseName)
-    {
+    public void setBaseName(Object baseName) {
         this.baseName = baseName;
     }
 
-    public Object getAppendix()
-    {
+    public Object getAppendix() {
         return appendix;
     }
 
-    public void setAppendix(Object appendix)
-    {
+    public void setAppendix(Object appendix) {
         this.appendix = appendix;
     }
 
-    public Object getVersion()
-    {
+    public Object getVersion() {
         return version;
     }
 
-    public void setVersion(Object version)
-    {
+    public void setVersion(Object version) {
         this.version = version;
     }
 
-    public Object getClassifier()
-    {
+    public Object getClassifier() {
         return classifier;
     }
 
-    public void setClassifier(Object classifier)
-    {
+    public void setClassifier(Object classifier) {
         this.classifier = classifier;
     }
 
-    public Object getExtension()
-    {
+    public Object getExtension() {
         return extension;
     }
 
-    public void setExtension(Object extension)
-    {
+    public void setExtension(Object extension) {
         this.extension = extension;
     }
 
-    public Object getClasspath()
-    {
+    public Object getClasspath() {
         if (classpath == null)
-            classpath = project.files((Object)new String[] {});
+            classpath = project.files((Object) new String[]{});
         return classpath;
     }
 
-    public void setClasspath(Object classpath)
-    {
+    public void setClasspath(Object classpath) {
         this.classpath = classpath;
     }
 
-    public boolean isArchiveSet()
-    {
+    public boolean isArchiveSet() {
         return archiveSet;
     }
 
-    public void setArchiveSet(boolean archiveSet)
-    {
+    public void setArchiveSet(boolean archiveSet) {
         this.archiveSet = archiveSet;
     }
 
-    public Object getArchiveName()
-    {
+    public Object getArchiveName() {
         return archiveName;
     }
-    
-    public void setArchiveName(Object archiveName)
-    {
+
+    public void setArchiveName(Object archiveName) {
         this.archiveName = archiveName;
         archiveSet = true;
     }
 
-    protected void resolve()
-    {
+    protected void resolve() {
 
         // resolve fields
         baseName = resolve(baseName, true);
@@ -168,20 +167,17 @@ public class ArtifactSpec
         StringBuilder builder = new StringBuilder();
         builder.append(baseName);
 
-        if (!Strings.isNullOrEmpty((String) appendix))
-        {
+        if (!Strings.isNullOrEmpty((String) appendix)) {
             builder.append('-');
             builder.append(appendix);
         }
 
-        if (!Strings.isNullOrEmpty((String) version))
-        {
+        if (!Strings.isNullOrEmpty((String) version)) {
             builder.append('-');
             builder.append(version);
         }
 
-        if (!Strings.isNullOrEmpty((String) classifier))
-        {
+        if (!Strings.isNullOrEmpty((String) classifier)) {
             builder.append('-');
             builder.append(classifier);
         }
@@ -193,11 +189,10 @@ public class ArtifactSpec
     }
 
     @SuppressWarnings("unchecked")
-    private Object resolve(Object obj, boolean isString)
-    {
+    private Object resolve(Object obj, boolean isString) {
         if (obj instanceof Closure)
             obj = ((Closure<Object>) obj).call();
-        
+
         if (obj == null)
             return null;
 

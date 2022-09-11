@@ -1,11 +1,9 @@
 package net.minecraftforge.gradle.common;
 
+import com.google.common.base.Throwables;
+import com.google.gson.JsonIOException;
+import com.google.gson.JsonSyntaxException;
 import groovy.lang.Closure;
-
-import java.io.File;
-import java.io.IOException;
-import java.util.HashMap;
-
 import net.minecraftforge.gradle.FileLogListenner;
 import net.minecraftforge.gradle.common.version.AssetIndex;
 import net.minecraftforge.gradle.common.version.Version;
@@ -17,39 +15,31 @@ import net.minecraftforge.gradle.delayed.DelayedString;
 import net.minecraftforge.gradle.tasks.DownloadAssetsTask;
 import net.minecraftforge.gradle.tasks.ObtainFernFlowerTask;
 import net.minecraftforge.gradle.tasks.abstractutil.DownloadTask;
-
-import org.gradle.api.Action;
-import org.gradle.api.DefaultTask;
-import org.gradle.api.Plugin;
-import org.gradle.api.Project;
-import org.gradle.api.Task;
+import org.gradle.api.*;
 import org.gradle.api.artifacts.repositories.MavenArtifactRepository;
 import org.gradle.api.tasks.Delete;
 import org.gradle.testfixtures.ProjectBuilder;
 
-import com.google.common.base.Throwables;
-import com.google.gson.JsonIOException;
-import com.google.gson.JsonSyntaxException;
+import java.io.File;
+import java.io.IOException;
+import java.util.HashMap;
 
-public abstract class BasePlugin<K extends BaseExtension> implements Plugin<Project>, IDelayedResolver<K>
-{
-    public Project    project;
-    public Version    version;
+public abstract class BasePlugin<K extends BaseExtension> implements Plugin<Project>, IDelayedResolver<K> {
+    public Project project;
+    public Version version;
     public AssetIndex assetIndex;
 
     @Override
-    public final void apply(Project arg)
-    {
+    public final void apply(Project arg) {
         project = arg;
-        
+
         // logging
         FileLogListenner listenner = new FileLogListenner(project.file(Constants.LOG));
         project.getLogging().addStandardOutputListener(listenner);
         project.getLogging().addStandardErrorListener(listenner);
         project.getGradle().addBuildListener(listenner);
 
-        if (project.getBuildDir().getAbsolutePath().contains("!"))
-        {
+        if (project.getBuildDir().getAbsolutePath().contains("!")) {
             project.getLogger().error("Build path has !, This will screw over a lot of java things as ! is used to denote archive paths, REMOVE IT if you want to continue");
             throw new RuntimeException("Build path contains !");
         }
@@ -61,8 +51,7 @@ public abstract class BasePlugin<K extends BaseExtension> implements Plugin<Proj
         // repos
         project.allprojects(new Action<Project>() {
             @Override
-            public void execute(Project proj)
-            {
+            public void execute(Project proj) {
                 addMavenRepo(proj, "forge", "http://files.minecraftforge.net/maven");
                 proj.getRepositories().mavenCentral();
                 addMavenRepo(proj, "minecraft", Constants.LIBRARY_URL);
@@ -72,24 +61,19 @@ public abstract class BasePlugin<K extends BaseExtension> implements Plugin<Proj
         // after eval
         project.afterEvaluate(new Action<Project>() {
             @Override
-            public void execute(Project project)
-            {
+            public void execute(Project project) {
                 afterEvaluate();
-                
-                try
-                {
-                    if (version != null)
-                    {
+
+                try {
+                    if (version != null) {
                         File index = delayedFile(Constants.ASSETS + "/indexes/" + version.getAssets() + ".json").call();
                         if (index.exists())
                             parseAssetIndex();
                     }
-                }
-                catch (Exception e)
-                {
+                } catch (Exception e) {
                     Throwables.propagate(e);
                 }
-                
+
                 finalCall();
             }
         });
@@ -107,8 +91,7 @@ public abstract class BasePlugin<K extends BaseExtension> implements Plugin<Proj
 
     private static boolean displayBanner = true;
 
-    public void afterEvaluate()
-    {
+    public void afterEvaluate() {
         if (!displayBanner)
             return;
         project.getLogger().lifecycle("****************************");
@@ -120,12 +103,12 @@ public abstract class BasePlugin<K extends BaseExtension> implements Plugin<Proj
         project.getLogger().lifecycle("****************************");
         displayBanner = false;
     }
-    
-    public void finalCall() {}
+
+    public void finalCall() {
+    }
 
     @SuppressWarnings("serial")
-    private void makeObtainTasks()
-    {
+    private void makeObtainTasks() {
         // download tasks
         DownloadTask task;
 
@@ -146,7 +129,7 @@ public abstract class BasePlugin<K extends BaseExtension> implements Plugin<Proj
             mcpTask.setMcpUrl(delayedString(Constants.MCP_URL));
             mcpTask.setFfJar(delayedFile(Constants.FERNFLOWER));
         }
-        
+
         DownloadTask getAssetsIndex = makeTask("getAssetsIndex", DownloadTask.class);
         {
             getAssetsIndex.setUrl(delayedString(Constants.ASSETS_INDEX_URL));
@@ -154,22 +137,17 @@ public abstract class BasePlugin<K extends BaseExtension> implements Plugin<Proj
             getAssetsIndex.setDoesCache(false);
 
             getAssetsIndex.doLast(new Action<Task>() {
-                public void execute(Task task)
-                {
-                    try
-                    {
+                public void execute(Task task) {
+                    try {
                         parseAssetIndex();
-                    }
-                    catch (Exception e)
-                    {
+                    } catch (Exception e) {
                         Throwables.propagate(e);
                     }
                 }
             });
-            
-            getAssetsIndex.getOutputs().upToDateWhen(new Closure<Boolean>(this, null)  {
-                public Boolean call(Object... obj)
-                {
+
+            getAssetsIndex.getOutputs().upToDateWhen(new Closure<Boolean>(this, null) {
+                public Boolean call(Object... obj) {
                     return false;
                 }
             });
@@ -188,34 +166,30 @@ public abstract class BasePlugin<K extends BaseExtension> implements Plugin<Proj
         }
     }
 
-    public void parseAssetIndex() throws JsonSyntaxException, JsonIOException, IOException
-    {
+    public void parseAssetIndex() throws JsonSyntaxException, JsonIOException, IOException {
         assetIndex = JsonFactory.loadAssetsIndex(delayedFile(Constants.ASSETS + "/indexes/{ASSET_INDEX}.json").call());
     }
 
     @SuppressWarnings("serial")
-    public Closure<AssetIndex> getAssetIndexClosure()
-    {
+    public Closure<AssetIndex> getAssetIndexClosure() {
         return new Closure<AssetIndex>(this, null) {
-            public AssetIndex call(Object... obj)
-            {
+            public AssetIndex call(Object... obj) {
                 return getAssetIndex();
             }
         };
     }
 
-    public AssetIndex getAssetIndex()
-    {
+    public AssetIndex getAssetIndex() {
         return assetIndex;
     }
 
     /**
      * This extension object will have the name "minecraft"
+     *
      * @return
      */
     @SuppressWarnings("unchecked")
-    protected Class<K> getExtensionClass()
-    {
+    protected Class<K> getExtensionClass() {
         return (Class<K>) BaseExtension.class;
     }
 
@@ -224,52 +198,42 @@ public abstract class BasePlugin<K extends BaseExtension> implements Plugin<Proj
      * @see Constants.EXT_NAME_MC
      */
     @SuppressWarnings("unchecked")
-    public final K getExtension()
-    {
+    public final K getExtension() {
         return (K) project.getExtensions().getByName(Constants.EXT_NAME_MC);
     }
 
-    public DefaultTask makeTask(String name)
-    {
+    public DefaultTask makeTask(String name) {
         return makeTask(name, DefaultTask.class);
     }
 
-    public <T extends Task> T makeTask(String name, Class<T> type)
-    {
+    public <T extends Task> T makeTask(String name, Class<T> type) {
         return makeTask(project, name, type);
     }
 
     @SuppressWarnings("unchecked")
-    public static <T extends Task> T makeTask(Project proj, String name, Class<T> type)
-    {
+    public static <T extends Task> T makeTask(Project proj, String name, Class<T> type) {
         HashMap<String, Object> map = new HashMap<String, Object>();
         map.put("name", name);
         map.put("type", type);
         return (T) proj.task(map, name);
     }
 
-    public static Project getProject(File buildFile, Project parent)
-    {
+    public static Project getProject(File buildFile, Project parent) {
         ProjectBuilder builder = ProjectBuilder.builder();
-        if (buildFile != null)
-        {
+        if (buildFile != null) {
             builder = builder.withProjectDir(buildFile.getParentFile())
                     .withName(buildFile.getParentFile().getName());
-        }
-        else
-        {
+        } else {
             builder = builder.withProjectDir(new File("."));
         }
 
-        if (parent != null)
-        {
+        if (parent != null) {
             builder = builder.withParent(parent);
         }
 
         Project project = builder.build();
 
-        if (buildFile != null)
-        {
+        if (buildFile != null) {
             HashMap<String, String> map = new HashMap<String, String>();
             map.put("from", buildFile.getAbsolutePath());
 
@@ -279,19 +243,16 @@ public abstract class BasePlugin<K extends BaseExtension> implements Plugin<Proj
         return project;
     }
 
-    public void applyExternalPlugin(String plugin)
-    {
+    public void applyExternalPlugin(String plugin) {
         HashMap<String, Object> map = new HashMap<String, Object>();
         map.put("plugin", plugin);
         project.apply(map);
     }
 
-    public void addMavenRepo(Project proj, final String name, final String url)
-    {
+    public void addMavenRepo(Project proj, final String name, final String url) {
         proj.getRepositories().maven(new Action<MavenArtifactRepository>() {
             @Override
-            public void execute(MavenArtifactRepository repo)
-            {
+            public void execute(MavenArtifactRepository repo) {
                 repo.setName(name);
                 repo.setUrl(url);
             }
@@ -299,30 +260,25 @@ public abstract class BasePlugin<K extends BaseExtension> implements Plugin<Proj
     }
 
     @Override
-    public String resolve(String pattern, Project project, K exten)
-    {
+    public String resolve(String pattern, Project project, K exten) {
         if (version != null)
             pattern = pattern.replace("{ASSET_INDEX}", version.getAssets());
         return pattern;
     }
 
-    protected DelayedString delayedString(String path)
-    {
+    protected DelayedString delayedString(String path) {
         return new DelayedString(project, path, this);
     }
 
-    protected DelayedFile delayedFile(String path)
-    {
+    protected DelayedFile delayedFile(String path) {
         return new DelayedFile(project, path, this);
     }
 
-    protected DelayedFileTree delayedFileTree(String path)
-    {
+    protected DelayedFileTree delayedFileTree(String path) {
         return new DelayedFileTree(project, path, this);
     }
 
-    protected DelayedFileTree delayedZipTree(String path)
-    {
+    protected DelayedFileTree delayedZipTree(String path) {
         return new DelayedFileTree(project, path, true, this);
     }
 

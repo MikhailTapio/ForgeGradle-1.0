@@ -1,14 +1,7 @@
 package net.minecraftforge.gradle.dev;
 
-import static net.minecraftforge.gradle.dev.DevConstants.*;
+import com.google.common.base.Throwables;
 import groovy.lang.Closure;
-
-import java.io.File;
-import java.io.IOException;
-import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.List;
-
 import net.minecraftforge.gradle.CopyInto;
 import net.minecraftforge.gradle.common.Constants;
 import net.minecraftforge.gradle.delayed.DelayedBase;
@@ -20,17 +13,7 @@ import net.minecraftforge.gradle.tasks.RemapSourcesTask;
 import net.minecraftforge.gradle.tasks.abstractutil.DelayedJar;
 import net.minecraftforge.gradle.tasks.abstractutil.ExtractTask;
 import net.minecraftforge.gradle.tasks.abstractutil.FileFilterTask;
-import net.minecraftforge.gradle.tasks.dev.ChangelogTask;
-import net.minecraftforge.gradle.tasks.dev.FMLVersionPropTask;
-import net.minecraftforge.gradle.tasks.dev.ForgeVersionReplaceTask;
-import net.minecraftforge.gradle.tasks.dev.GenBinaryPatches;
-import net.minecraftforge.gradle.tasks.dev.GenDevProjectsTask;
-import net.minecraftforge.gradle.tasks.dev.GeneratePatches;
-import net.minecraftforge.gradle.tasks.dev.ObfuscateTask;
-import net.minecraftforge.gradle.tasks.dev.SubmoduleChangelogTask;
-import net.minecraftforge.gradle.tasks.dev.SubprojectTask;
-import net.minecraftforge.gradle.tasks.dev.VersionJsonTask;
-
+import net.minecraftforge.gradle.tasks.dev.*;
 import org.apache.commons.io.FileUtils;
 import org.gradle.api.Action;
 import org.gradle.api.DefaultTask;
@@ -41,15 +24,19 @@ import org.gradle.api.tasks.Delete;
 import org.gradle.api.tasks.bundling.Jar;
 import org.gradle.api.tasks.bundling.Zip;
 
-import com.google.common.base.Throwables;
+import java.io.File;
+import java.io.IOException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.List;
 
-public class ForgeDevPlugin extends DevBasePlugin
-{
+import static net.minecraftforge.gradle.dev.DevConstants.*;
+
+public class ForgeDevPlugin extends DevBasePlugin {
     @Override
-    public void applyPlugin()
-    {
+    public void applyPlugin() {
         super.applyPlugin();
-        
+
         // set fmlDir
         getExtension().setFmlDir("fml");
 
@@ -71,8 +58,7 @@ public class ForgeDevPlugin extends DevBasePlugin
         task.setGroup("Forge");
     }
 
-    protected void createJarProcessTasks()
-    {
+    protected void createJarProcessTasks() {
 
         ProcessJarTask task2 = makeTask("deobfBinJar", ProcessJarTask.class);
         {
@@ -103,7 +89,7 @@ public class ForgeDevPlugin extends DevBasePlugin
             task4.setDoesCache(false);
             task4.dependsOn("decompile");
         }
-        
+
         // add fml sources
         Zip task5 = makeTask("fmlInjectJar", Zip.class);
         {
@@ -113,14 +99,14 @@ public class ForgeDevPlugin extends DevBasePlugin
             task5.from(delayedFile("{MAPPINGS_DIR}/patches"), new CopyInto("", "Start.java"));
             task5.from(delayedFile(DEOBF_DATA));
             task5.from(delayedFile(FML_VERSIONF));
-            
+
             // see ZIP_INJECT_FORGE
             task5.setArchiveName("minecraft_fmlinjected.zip");
             task5.setDestinationDir(delayedFile("{BUILD_DIR}/forgeTmp").call());
-            
+
             task5.dependsOn("fmlPatchJar", "compressDeobfData", "createVersionPropertiesFML");
         }
-        
+
         RemapSourcesTask task6 = makeTask("remapSourcesJar", RemapSourcesTask.class);
         {
             task6.setInJar(delayedFile(ZIP_INJECT_FORGE));
@@ -132,7 +118,7 @@ public class ForgeDevPlugin extends DevBasePlugin
             task6.setDoesJavadocs(true);
             task6.dependsOn("fmlInjectJar");
         }
-        
+
         task4 = makeTask("forgePatchJar", PatchJarTask.class);
         {
             task4.setInJar(delayedFile(ZIP_RENAMED_FORGE));
@@ -143,8 +129,7 @@ public class ForgeDevPlugin extends DevBasePlugin
         }
     }
 
-    private void createSourceCopyTasks()
-    {
+    private void createSourceCopyTasks() {
         ExtractTask task = makeTask("extractMcResources", ExtractTask.class);
         {
             task.exclude(JAVA_FILES);
@@ -182,17 +167,14 @@ public class ForgeDevPlugin extends DevBasePlugin
     }
 
     @SuppressWarnings("serial")
-    private void createProjectTasks()
-    {
+    private void createProjectTasks() {
         FMLVersionPropTask sub = makeTask("createVersionPropertiesFML", FMLVersionPropTask.class);
         {
             //sub.setTasks("createVersionProperties");
             //sub.setBuildFile(delayedFile("{FML_DIR}/build.gradle"));
-            sub.setVersion(new Closure<String>(project)
-            {
+            sub.setVersion(new Closure<String>(project) {
                 @Override
-                public String call(Object... args)
-                {
+                public String call(Object... args) {
                     return FmlDevPlugin.getVersionFromGit(project, new File(delayedString("{FML_DIR}").call()));
                 }
             });
@@ -205,7 +187,7 @@ public class ForgeDevPlugin extends DevBasePlugin
             task.setJson(delayedFile(JSON_DEV)); // Change to FmlConstants.JSON_BASE eventually, so that it's the base vanilla json
             task.dependsOn("extractNatives");
         }
-        
+
         task = makeTask("generateProjectForge", GenDevProjectsTask.class);
         {
             task.setJson(delayedFile(JSON_DEV));
@@ -217,14 +199,13 @@ public class ForgeDevPlugin extends DevBasePlugin
             task.addResource(delayedFile(ECLIPSE_FORGE + "/src/resources"));
             task.addResource(delayedFile(FORGE_RESOURCES));
 
-            task.dependsOn("extractNatives","createVersionPropertiesFML");
+            task.dependsOn("extractNatives", "createVersionPropertiesFML");
         }
 
         makeTask("generateProjects").dependsOn("generateProjectClean", "generateProjectForge");
     }
 
-    private void createEclipseTasks()
-    {
+    private void createEclipseTasks() {
         SubprojectTask task = makeTask("eclipseClean", SubprojectTask.class);
         {
             task.setBuildFile(delayedFile(ECLIPSE_CLEAN + "/build.gradle"));
@@ -242,8 +223,7 @@ public class ForgeDevPlugin extends DevBasePlugin
         makeTask("eclipse").dependsOn("eclipseClean", "eclipseForge");
     }
 
-    private void createMiscTasks()
-    {
+    private void createMiscTasks() {
         GeneratePatches task2 = makeTask("genPatches", GeneratePatches.class);
         {
             task2.setPatchDir(delayedFile(FORGE_PATCH_DIR));
@@ -301,8 +281,7 @@ public class ForgeDevPlugin extends DevBasePlugin
     }
 
     @SuppressWarnings("serial")
-    private void createPackageTasks()
-    {
+    private void createPackageTasks() {
         ChangelogTask log = makeTask("createChangelog", ChangelogTask.class);
         {
             log.getOutputs().upToDateWhen(Constants.CALL_FALSE);
@@ -341,27 +320,20 @@ public class ForgeDevPlugin extends DevBasePlugin
             uni.from(delayedFile(VERSION_JSON));
             uni.exclude("devbinpatches.pack.lzma");
             uni.setIncludeEmptyDirs(false);
-            uni.setManifest(new Closure<Object>(project)
-            {
-                public Object call()
-                {
+            uni.setManifest(new Closure<Object>(project) {
+                public Object call() {
                     Manifest mani = (Manifest) getDelegate();
                     mani.getAttributes().put("Main-Class", delayedString("{MAIN_CLASS}").call());
                     mani.getAttributes().put("Class-Path", getServerClassPath(delayedFile(JSON_REL).call()));
                     return null;
                 }
             });
-            uni.doLast(new Action<Task>()
-            {
+            uni.doLast(new Action<Task>() {
                 @Override
-                public void execute(Task arg0)
-                {
-                    try
-                    {
-                        signJar(((DelayedJar)arg0).getArchivePath(), "forge", "*/*/**", "!paulscode/**");
-                    }
-                    catch (Exception e)
-                    {
+                public void execute(Task arg0) {
+                    try {
+                        signJar(((DelayedJar) arg0).getArchivePath(), "forge", "*/*/**", "!paulscode/**");
+                    } catch (Exception e) {
                         Throwables.propagate(e);
                     }
                 }
@@ -379,17 +351,13 @@ public class ForgeDevPlugin extends DevBasePlugin
             task.addReplacement("@version@", delayedString("{VERSION}"));
             task.addReplacement("@project@", delayedString("Forge"));
             task.addReplacement("@artifact@", delayedString("net.minecraftforge:forge:{MC_VERSION}-{VERSION}"));
-            task.addReplacement("@universal_jar@", new Closure<String>(project)
-            {
-                public String call()
-                {
+            task.addReplacement("@universal_jar@", new Closure<String>(project) {
+                public String call() {
                     return uni.getArchiveName();
                 }
             });
-            task.addReplacement("@timestamp@", new Closure<String>(project)
-            {
-                public String call()
-                {
+            task.addReplacement("@timestamp@", new Closure<String>(project) {
+                public String call() {
                     return (new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ")).format(new Date());
                 }
             });
@@ -399,8 +367,7 @@ public class ForgeDevPlugin extends DevBasePlugin
         {
             inst.setClassifier("installer");
             inst.from(new Closure<File>(project) {
-                public File call()
-                {
+                public File call() {
                     return uni.getArchivePath();
                 }
             });
@@ -426,14 +393,14 @@ public class ForgeDevPlugin extends DevBasePlugin
             patchZipFML.setArchiveName("fmlpatches.zip");
             patchZipFML.setDestinationDir(delayedFile("{BUILD_DIR}/tmp/").call());
         }
-        
+
         final Zip patchZipForge = makeTask("zipForgePatches", Zip.class);
         {
             patchZipForge.from(delayedFile(FORGE_PATCH_DIR));
             patchZipForge.setArchiveName("forgepatches.zip");
             patchZipForge.setDestinationDir(delayedFile("{BUILD_DIR}/tmp/").call());
         }
-        
+
         final Zip classZip = makeTask("jarClasses", Zip.class);
         {
             classZip.from(delayedZipTree(BINPATCH_TMP), new CopyInto("", "**/*.class"));
@@ -448,8 +415,7 @@ public class ForgeDevPlugin extends DevBasePlugin
             javadocJar.setTasks("javadoc");
             javadocJar.setConfigureTask(new Action<Task>() {
                 @Override
-                public void execute(Task obj)
-                {
+                public void execute(Task obj) {
                     Jar task = (Jar) obj;
                     File file = delayedFile(DevConstants.JAVADOC_TMP).call();
                     task.setDestinationDir(file.getParentFile());
@@ -471,20 +437,17 @@ public class ForgeDevPlugin extends DevBasePlugin
             userDev.setClassifier("userdev");
             userDev.from(delayedFile(JSON_DEV));
             userDev.from(new Closure<File>(project) {
-                public File call()
-                {
+                public File call() {
                     return patchZipFML.getArchivePath();
                 }
             });
             userDev.from(new Closure<File>(project) {
-                public File call()
-                {
+                public File call() {
                     return patchZipForge.getArchivePath();
                 }
             });
             userDev.from(new Closure<File>(project) {
-                public File call()
-                {
+                public File call() {
                     return classZip.getArchivePath();
                 }
             });
@@ -530,21 +493,18 @@ public class ForgeDevPlugin extends DevBasePlugin
         project.getArtifacts().add("archives", src);
     }
 
-    @SuppressWarnings({ "rawtypes", "unchecked" })
-    public static String getVersionFromJava(Project project, String file) throws IOException
-    {
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    public static String getVersionFromJava(Project project, String file) throws IOException {
         String major = "0";
         String minor = "0";
         String revision = "0";
         String build = "0";
 
         String prefix = "public static final int";
-        List<String> lines = (List<String>)FileUtils.readLines(project.file(file));
-        for (String s : lines)
-        {
+        List<String> lines = (List<String>) FileUtils.readLines(project.file(file));
+        for (String s : lines) {
             s = s.trim();
-            if (s.startsWith(prefix))
-            {
+            if (s.startsWith(prefix)) {
                 s = s.substring(prefix.length(), s.length() - 1);
                 s = s.replace('=', ' ').replace("Version", "").replaceAll(" +", " ").trim();
                 String[] pts = s.split(" ");
@@ -555,34 +515,28 @@ public class ForgeDevPlugin extends DevBasePlugin
             }
         }
 
-        if (System.getenv().containsKey("BUILD_NUMBER"))
-        {
+        if (System.getenv().containsKey("BUILD_NUMBER")) {
             build = System.getenv("BUILD_NUMBER");
         }
 
         String branch = null;
-        if (!System.getenv().containsKey("GIT_BRANCH"))
-        {
+        if (!System.getenv().containsKey("GIT_BRANCH")) {
             branch = runGit(project, project.getProjectDir(), "rev-parse", "--abbrev-ref", "HEAD");
-        }
-        else
-        {
+        } else {
             branch = System.getenv("GIT_BRANCH");
             branch = branch.substring(branch.lastIndexOf('/') + 1);
         }
 
-        if (branch != null && (branch.equals("master") || branch.equals("HEAD")))
-        {
+        if (branch != null && (branch.equals("master") || branch.equals("HEAD"))) {
             branch = null;
         }
-        
-        IDelayedResolver resolver = (IDelayedResolver)project.getPlugins().findPlugin("forgedev");
+
+        IDelayedResolver resolver = (IDelayedResolver) project.getPlugins().findPlugin("forgedev");
         StringBuilder out = new StringBuilder();
 
         out.append(DelayedBase.resolve("{MC_VERSION}", project, resolver)).append('-'); // Somehow configure this?
         out.append(major).append('.').append(minor).append('.').append(revision).append('.').append(build);
-        if (branch != null)
-        {
+        if (branch != null) {
             out.append('-').append(branch);
         }
 

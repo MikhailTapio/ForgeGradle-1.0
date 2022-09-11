@@ -1,7 +1,18 @@
 package net.minecraftforge.gradle.tasks;
 
+import com.google.common.io.ByteStreams;
+import com.google.common.io.Files;
 import groovy.lang.Closure;
+import net.minecraftforge.gradle.common.Constants;
+import net.minecraftforge.gradle.common.version.AssetIndex;
+import net.minecraftforge.gradle.common.version.AssetIndex.AssetEntry;
+import net.minecraftforge.gradle.delayed.DelayedFile;
+import org.gradle.api.DefaultTask;
+import org.gradle.api.tasks.Input;
+import org.gradle.api.tasks.TaskAction;
+import org.xml.sax.SAXException;
 
+import javax.xml.parsers.ParserConfigurationException;
 import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.IOException;
@@ -10,46 +21,28 @@ import java.util.ArrayList;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
-import javax.xml.parsers.ParserConfigurationException;
-
-import net.minecraftforge.gradle.common.Constants;
-import net.minecraftforge.gradle.common.version.AssetIndex;
-import net.minecraftforge.gradle.common.version.AssetIndex.AssetEntry;
-import net.minecraftforge.gradle.delayed.DelayedFile;
-
-import org.gradle.api.DefaultTask;
-import org.gradle.api.tasks.Input;
-import org.gradle.api.tasks.TaskAction;
-import org.xml.sax.SAXException;
-
-import com.google.common.io.ByteStreams;
-import com.google.common.io.Files;
-
-public class DownloadAssetsTask extends DefaultTask
-{
-    DelayedFile                                assetsDir;
+public class DownloadAssetsTask extends DefaultTask {
+    DelayedFile assetsDir;
 
     @Input
-    Closure<AssetIndex>                        index;
+    Closure<AssetIndex> index;
 
-    private boolean                            errored      = false;
-    private final ConcurrentLinkedQueue<Asset> filesLeft    = new ConcurrentLinkedQueue<Asset>();
-    private final ArrayList<AssetsThread>      threads      = new ArrayList<AssetsThread>();
-    private final File                         minecraftDir = new File(Constants.getMinecraftDirectory(), "assets/objects");
+    private boolean errored = false;
+    private final ConcurrentLinkedQueue<Asset> filesLeft = new ConcurrentLinkedQueue<Asset>();
+    private final ArrayList<AssetsThread> threads = new ArrayList<AssetsThread>();
+    private final File minecraftDir = new File(Constants.getMinecraftDirectory(), "assets/objects");
 
-    private static final int                   MAX_THREADS  = Runtime.getRuntime().availableProcessors();
-    private static final int                   MAX_TRIES    = 5;
+    private static final int MAX_THREADS = Runtime.getRuntime().availableProcessors();
+    private static final int MAX_TRIES = 5;
 
     @TaskAction
-    public void doTask() throws ParserConfigurationException, SAXException, IOException, InterruptedException
-    {
+    public void doTask() throws ParserConfigurationException, SAXException, IOException, InterruptedException {
         File out = new File(getAssetsDir(), "objects");
         out.mkdirs();
 
         AssetIndex index = getIndex();
 
-        for (Entry<String, AssetEntry> e : index.objects.entrySet())
-        {
+        for (Entry<String, AssetEntry> e : index.objects.entrySet()) {
             Asset asset = new Asset(e.getValue().hash, e.getValue().size);
             File file = new File(out, asset.path);
 
@@ -77,25 +70,21 @@ public class DownloadAssetsTask extends DefaultTask
 
         getLogger().info("Threads initially spawned: " + threadNum);
 
-        while (stillRunning())
-        {
+        while (stillRunning()) {
             int done = max - filesLeft.size();
             getLogger().lifecycle("Current status: " + done + "/" + max + "   " + (int) ((double) done / max * 100) + "%");
             spawnThread();
             Thread.sleep(1000);
         }
-        
-        if (errored)
-        {
+
+        if (errored) {
             // CRASH!
             throw new RuntimeException("Something went wrong with the Assets downloading!");
         }
     }
 
-    private void spawnThread()
-    {
-        if (threads.size() < MAX_THREADS)
-        {
+    private void spawnThread() {
+        if (threads.size() < MAX_THREADS) {
             getLogger().debug("Spawning thread #" + (threads.size() + 1));
             AssetsThread thread = new AssetsThread();
             thread.start();
@@ -103,12 +92,9 @@ public class DownloadAssetsTask extends DefaultTask
         }
     }
 
-    private boolean stillRunning()
-    {
-        for (Thread t : threads)
-        {
-            if (t.isAlive())
-            {
+    private boolean stillRunning() {
+        for (Thread t : threads) {
+            if (t.isAlive()) {
                 return true;
             }
         }
@@ -116,62 +102,49 @@ public class DownloadAssetsTask extends DefaultTask
         return false;
     }
 
-    public File getAssetsDir()
-    {
+    public File getAssetsDir() {
         return assetsDir.call();
     }
 
-    public void setAssetsDir(DelayedFile assetsDir)
-    {
+    public void setAssetsDir(DelayedFile assetsDir) {
         this.assetsDir = assetsDir;
     }
 
-    public AssetIndex getIndex()
-    {
+    public AssetIndex getIndex() {
         return index.call();
     }
 
-    public void setIndex(Closure<AssetIndex> index)
-    {
+    public void setIndex(Closure<AssetIndex> index) {
         this.index = index;
     }
 
-    private static class Asset
-    {
+    private static class Asset {
         public final String path;
         public final String hash;
-        public final long   size;
+        public final long size;
 
-        Asset(String hash, long size)
-        {
+        Asset(String hash, long size) {
             this.path = hash.substring(0, 2) + "/" + hash;
             this.hash = hash.toLowerCase();
             this.size = size;
         }
     }
 
-    private class AssetsThread extends Thread
-    {
-        public AssetsThread()
-        {
+    private class AssetsThread extends Thread {
+        public AssetsThread() {
             this.setDaemon(true);
         }
 
         @Override
-        public void run()
-        {
+        public void run() {
             Asset asset;
-            while ((asset = filesLeft.poll()) != null)
-            {
-                for (int i = 1; i < MAX_TRIES + 1; i++)
-                {
-                    try
-                    {
+            while ((asset = filesLeft.poll()) != null) {
+                for (int i = 1; i < MAX_TRIES + 1; i++) {
+                    try {
                         File file = new File(getAssetsDir(), "objects/" + asset.path);
 
                         // does exist? create
-                        if (!file.exists())
-                        {
+                        if (!file.exists()) {
                             file.getParentFile().mkdirs();
                             file.createNewFile();
                         }
@@ -194,14 +167,11 @@ public class DownloadAssetsTask extends DefaultTask
                         String hash = Constants.hash(file, "SHA1");
                         if (asset.hash.equals(hash))
                             break; // hashes are fine;
-                        else
-                        {
+                        else {
                             file.delete();
                             getLogger().error("download attempt " + i + " failed! : " + asset.hash + " != " + hash);
                         }
-                    }
-                    catch (Exception e)
-                    {
+                    } catch (Exception e) {
                         getLogger().error("Error downloading asset: " + asset.path);
                         e.printStackTrace();
                         if (!errored)

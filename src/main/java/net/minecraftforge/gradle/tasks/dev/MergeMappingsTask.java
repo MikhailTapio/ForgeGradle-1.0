@@ -2,19 +2,16 @@ package net.minecraftforge.gradle.tasks.dev;
 
 import au.com.bytecode.opencsv.CSVParser;
 import au.com.bytecode.opencsv.CSVReader;
-
+import com.google.code.regexp.Matcher;
+import com.google.code.regexp.Pattern;
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 import com.google.common.collect.ObjectArrays;
 import com.google.common.io.Files;
 import com.google.common.io.LineProcessor;
-import com.google.code.regexp.Pattern;
-import com.google.code.regexp.Matcher;
-
 import net.minecraftforge.gradle.common.Constants;
 import net.minecraftforge.gradle.delayed.DelayedFile;
 import net.minecraftforge.gradle.tasks.abstractutil.CachedTask;
-
 import org.gradle.api.tasks.InputFile;
 import org.gradle.api.tasks.OutputFile;
 import org.gradle.api.tasks.TaskAction;
@@ -28,8 +25,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 
-public class MergeMappingsTask extends CachedTask
-{
+public class MergeMappingsTask extends CachedTask {
     public static final Pattern SIG_PATTERN = Pattern.compile("([\\[ZBCSIJFDV]|L([\\w\\\\/]+);)");
     public static final Pattern PACK_PATTERN = Pattern.compile("net\\\\minecraft\\\\src\\\\\\w+");
     public static final Pattern METHOD_SIG_PATTERN = Pattern.compile("^(?<className>[^\\.]+)\\.(?<methodName>[^\\(]+)(?<signature>.*)$");
@@ -60,13 +56,11 @@ public class MergeMappingsTask extends CachedTask
     DelayedFile outEXC;
 
     @TaskAction
-    public void doTask() throws IOException
-    {
+    public void doTask() throws IOException {
         // read SRG.
         // using this lib because SpecialSource needs it anyways.
         CSVReader reader = new CSVReader(new FileReader(getPackageCSV()), CSVParser.DEFAULT_SEPARATOR, CSVParser.DEFAULT_QUOTE_CHARACTER, CSVParser.DEFAULT_ESCAPE_CHARACTER, 1, false);
-        for (String[] line : reader.readAll())
-        {
+        for (String[] line : reader.readAll()) {
             packages.put(line[0], line[1]);
         }
         reader.close();
@@ -81,8 +75,7 @@ public class MergeMappingsTask extends CachedTask
         fixPatch(getInPatch(), getOutPatch());
     }
 
-    private void fixSRG(File inSRG, File outSRG) throws IOException
-    {
+    private void fixSRG(File inSRG, File outSRG) throws IOException {
         Files.touch(inSRG);
 
         StringBuilder outText = new StringBuilder();
@@ -93,22 +86,16 @@ public class MergeMappingsTask extends CachedTask
         // itterate through lines
         String line;
         String[] sections;
-        while ((line = reader.readLine()) != null)
-        {
+        while ((line = reader.readLine()) != null) {
             sections = line.split(" ");
 
-            if (sections[0].equals("CL:"))
-            {
+            if (sections[0].equals("CL:")) {
                 sections[2] = repackageClass(sections[2]);
-            }
-            else if (sections[0].equals("FD:"))
-            {
+            } else if (sections[0].equals("FD:")) {
                 String[] split = rsplit(sections[2], "/");
                 split[0] = repackageClass(split[0]);
                 sections[2] = Joiner.on("/").join(split);
-            }
-            else if (sections[0].equals("MD:"))
-            {
+            } else if (sections[0].equals("MD:")) {
                 String[] split = rsplit(sections[3], "/");
                 split[0] = repackageClass(split[0]);
                 sections[3] = Joiner.on("/").join(split);
@@ -130,8 +117,7 @@ public class MergeMappingsTask extends CachedTask
     }
 
     // thanks shartte. This code is stolen directly from him/her
-    private void fixExceptor(File inExc, File outExc) throws IOException
-    {
+    private void fixExceptor(File inExc, File outExc) throws IOException {
         Files.touch(outExc);
 
         Properties mappings = new Properties();
@@ -140,12 +126,10 @@ public class MergeMappingsTask extends CachedTask
         // Try to load the mappings
         mappings.load(Files.newInputStreamSupplier(inExc).getInput());
 
-        for (Map.Entry<Object, Object> entry : mappings.entrySet())
-        {
+        for (Map.Entry<Object, Object> entry : mappings.entrySet()) {
             Matcher matcher = METHOD_SIG_PATTERN.matcher((String) entry.getKey());
 
-            if (!matcher.matches())
-            {
+            if (!matcher.matches()) {
                 // There are some new fields in MCP for MC 1.6 that are not straight up method signatures
                 mappingsOut.put(entry.getKey(), entry.getValue());
                 continue;
@@ -157,20 +141,17 @@ public class MergeMappingsTask extends CachedTask
             String[] exceptionsAndParams = ((String) entry.getValue()).split("\\|");
 
             String exceptions;
-            if (exceptionsAndParams.length > 0 && !Strings.isNullOrEmpty(exceptions = exceptionsAndParams[0]))
-            {
+            if (exceptionsAndParams.length > 0 && !Strings.isNullOrEmpty(exceptions = exceptionsAndParams[0])) {
                 String[] excs = exceptions.split(",");
 
                 // repackage exceptions
-                for (int i = 0; i < excs.length; i++)
-                {
+                for (int i = 0; i < excs.length; i++) {
                     excs[i] = repackageClass(excs[i]);
                 }
                 exceptionsAndParams[0] = Joiner.on(',').join(excs);
             }
             // add an element to make sure there are 3
-            while (exceptionsAndParams.length < 2)
-            {
+            while (exceptionsAndParams.length < 2) {
                 exceptionsAndParams = ObjectArrays.concat(exceptionsAndParams, "");
             }
 
@@ -185,21 +166,17 @@ public class MergeMappingsTask extends CachedTask
         mappingsOut.store(Files.newOutputStreamSupplier(outExc).getOutput(), "");
     }
 
-    private void fixPatch(File patch, File outPatch) throws IOException
-    {
+    private void fixPatch(File patch, File outPatch) throws IOException {
         String text = Files.readLines(patch, Charset.defaultCharset(), new PatchLineProcessor());
         Files.touch(outPatch);
         Files.write(text, outPatch, Charset.defaultCharset());
     }
 
-    private String repackageClass(String input)
-    {
-        if (input.startsWith("net/minecraft/src"))
-        {
+    private String repackageClass(String input) {
+        if (input.startsWith("net/minecraft/src")) {
             String className = input.substring(18);
             String pack = packages.get(className);
-            if (!Strings.isNullOrEmpty(pack))
-            {
+            if (!Strings.isNullOrEmpty(pack)) {
                 return pack + "/" + className;
             }
         }
@@ -207,8 +184,7 @@ public class MergeMappingsTask extends CachedTask
         return input;
     }
 
-    private String repackageSig(String sig)
-    {
+    private String repackageSig(String sig) {
         String[] split = rsplit(sig, ")");
         String params = split[0];
         String ret = split[1];
@@ -217,14 +193,10 @@ public class MergeMappingsTask extends CachedTask
 
         // add in changed parameters
         Matcher match = SIG_PATTERN.matcher(params);
-        while (match.find())
-        {
-            if (match.group().length() > 1)
-            {
+        while (match.find()) {
+            if (match.group().length() > 1) {
                 out.append('L').append(repackageClass(match.group(2))).append(';');
-            }
-            else
-            {
+            } else {
                 out.append(match.group());
             }
         }
@@ -232,14 +204,10 @@ public class MergeMappingsTask extends CachedTask
         out.append(')');
 
         match = SIG_PATTERN.matcher(ret);
-        while (match.find())
-        {
-            if (match.group().length() > 1)
-            {
+        while (match.find()) {
+            if (match.group().length() > 1) {
                 out.append('L').append(repackageClass(match.group(2))).append(';');
-            }
-            else
-            {
+            } else {
                 out.append(match.group());
             }
         }
@@ -247,12 +215,10 @@ public class MergeMappingsTask extends CachedTask
         return out.toString();
     }
 
-    private String[] rsplit(String input, String splitter)
-    {
+    private String[] rsplit(String input, String splitter) {
         int index = input.lastIndexOf(splitter);
 
-        if (index == -1)
-        {
+        if (index == -1) {
             return new String[]{input};
         }
 
@@ -261,17 +227,14 @@ public class MergeMappingsTask extends CachedTask
         return new String[]{pieceOne, pieceTwo};
     }
 
-    private class PatchLineProcessor implements LineProcessor<String>
-    {
+    private class PatchLineProcessor implements LineProcessor<String> {
         StringBuilder builder = new StringBuilder();
 
         @Override
-        public boolean processLine(String s) throws IOException
-        {
+        public boolean processLine(String s) throws IOException {
             Matcher match = PACK_PATTERN.matcher(s);
             String clazz;
-            if (match.find())
-            {
+            if (match.find()) {
                 clazz = repackageClass(match.group().replace("\\", "/")).replace("/", "\\");
                 s = s.replace(match.group(), clazz);
             }
@@ -282,80 +245,65 @@ public class MergeMappingsTask extends CachedTask
         }
 
         @Override
-        public String getResult()
-        {
+        public String getResult() {
             // remove the last newline before making it a string
             return builder.substring(0, builder.length() - Constants.NEWLINE.length()).toString();
         }
     }
 
-    public File getInEXC()
-    {
+    public File getInEXC() {
         return inEXC.call();
     }
 
-    public void setInEXC(DelayedFile inEXC)
-    {
+    public void setInEXC(DelayedFile inEXC) {
         this.inEXC = inEXC;
     }
 
-    public File getInPatch()
-    {
+    public File getInPatch() {
         return inPatch.call();
     }
 
-    public void setInPatch(DelayedFile inPatch)
-    {
+    public void setInPatch(DelayedFile inPatch) {
         this.inPatch = inPatch;
     }
 
-    public File getInSRG()
-    {
+    public File getInSRG() {
         return inSRG.call();
     }
 
-    public void setInSRG(DelayedFile inSRG)
-    {
+    public void setInSRG(DelayedFile inSRG) {
         this.inSRG = inSRG;
     }
 
-    public File getOutEXC()
-    {
+    public File getOutEXC() {
         return outEXC.call();
     }
 
-    public void setOutEXC(DelayedFile outEXC)
-    {
+    public void setOutEXC(DelayedFile outEXC) {
         this.outEXC = outEXC;
     }
 
-    public File getOutPatch()
-    {
+    public File getOutPatch() {
         return outPatch.call();
     }
 
-    public void setOutPatch(DelayedFile outPatch)
-    {
+    public void setOutPatch(DelayedFile outPatch) {
         this.outPatch = outPatch;
     }
 
-    public File getOutSRG()
-    {
+    public File getOutSRG() {
         return outSRG.call();
     }
 
-    public void setOutSRG(DelayedFile outSRG)
-    {
+    public void setOutSRG(DelayedFile outSRG) {
         this.outSRG = outSRG;
     }
 
-    public File getPackageCSV()
-    {
+    public File getPackageCSV() {
         return packageCSV.call();
     }
 
-    public void setPackageCSV(DelayedFile packageCSV)
-    {
+    public void setPackageCSV(DelayedFile packageCSV) {
         this.packageCSV = packageCSV;
     }
 }

@@ -2,10 +2,8 @@ package net.minecraftforge.gradle.tasks.abstractutil;
 
 import com.google.common.base.Joiner;
 import com.google.common.io.Files;
-
 import groovy.lang.Closure;
 import net.minecraftforge.gradle.common.Constants;
-
 import org.gradle.api.Action;
 import org.gradle.api.DefaultTask;
 import org.gradle.api.Task;
@@ -26,30 +24,24 @@ import java.util.List;
 /**
  * This class offers some extra helper methods for caching files.
  */
-public abstract class CachedTask extends DefaultTask
-{
+public abstract class CachedTask extends DefaultTask {
     private boolean doesCache = true;
     private final ArrayList<Annotated> cachedList = new ArrayList<Annotated>();
-    private final ArrayList<Annotated> inputList  = new ArrayList<Annotated>();
+    private final ArrayList<Annotated> inputList = new ArrayList<Annotated>();
 
     @SuppressWarnings("unchecked")
-    public CachedTask()
-    {
+    public CachedTask() {
         super();
 
         Class<? extends Task> clazz = this.getClass();
-        while (clazz != null)
-        {
+        while (clazz != null) {
             Field[] fields = clazz.getDeclaredFields();
-            for (Field f : fields)
-            {
-                if (f.isAnnotationPresent(Cached.class))
-                {
+            for (Field f : fields) {
+                if (f.isAnnotationPresent(Cached.class)) {
                     addCachedField(new Annotated(clazz, f.getName()));
                 }
 
-                if (f.isAnnotationPresent(InputFile.class) || f.isAnnotationPresent(Input.class))
-                {
+                if (f.isAnnotationPresent(InputFile.class) || f.isAnnotationPresent(Input.class)) {
                     inputList.add(new Annotated(clazz, f.getName()));
                 }
             }
@@ -57,38 +49,32 @@ public abstract class CachedTask extends DefaultTask
             clazz = (Class<? extends Task>) clazz.getSuperclass();
         }
 
-        this.onlyIf(new Closure<Boolean>(this, this)
-        {
+        this.onlyIf(new Closure<Boolean>(this, this) {
             /**
-             * 
+             *
              */
             private static final long serialVersionUID = -1685502083302238195L;
 
             @Override
-            public Boolean call(Object...objects)
-            {
+            public Boolean call(Object... objects) {
                 if (!doesCache())
                     return true;
-                
+
                 if (cachedList.isEmpty())
                     return true;
-                
-                for (Annotated field : cachedList)
-                {
 
-                    try
-                    {
+                for (Annotated field : cachedList) {
+
+                    try {
                         File file = getFile(field);
 
                         // not there? do the task.
-                        if (!file.exists())
-                        {
+                        if (!file.exists()) {
                             return true;
                         }
 
                         File hashFile = getHashFile(file);
-                        if (!hashFile.exists())
-                        {
+                        if (!hashFile.exists()) {
                             return true;
                         }
 
@@ -99,8 +85,7 @@ public abstract class CachedTask extends DefaultTask
                         getProject().getLogger().info("Checksums found: " + foundMD5);
                         getProject().getLogger().info("Checksums calculated: " + calcMD5);
 
-                        if (!calcMD5.equals(foundMD5))
-                        {
+                        if (!calcMD5.equals(foundMD5)) {
                             getProject().getLogger().error(" Corrupted Cache!");
                             file.delete();
                             getHashFile(file).delete();
@@ -109,8 +94,7 @@ public abstract class CachedTask extends DefaultTask
 
                     }
                     // error? spit it and do the task.
-                    catch (Exception e)
-                    {
+                    catch (Exception e) {
                         e.printStackTrace();
                         return true;
                     }
@@ -120,8 +104,7 @@ public abstract class CachedTask extends DefaultTask
                 return false;
             }
 
-            private File getFile(Annotated field) throws IllegalAccessException, NoSuchFieldException
-            {
+            private File getFile(Annotated field) throws IllegalAccessException, NoSuchFieldException {
                 Field f = field.taskClass.getDeclaredField(field.fieldName);
                 f.setAccessible(true);
                 return getProject().file(f.get(getDelegate()));
@@ -129,58 +112,46 @@ public abstract class CachedTask extends DefaultTask
         });
     }
 
-    private void addCachedField(final Annotated annot)
-    {
+    private void addCachedField(final Annotated annot) {
         cachedList.add(annot);
 
-        this.doLast(new Action<Task>()
-        {
+        this.doLast(new Action<Task>() {
             @Override
-            public void execute(Task task)
-            {
+            public void execute(Task task) {
                 if (!doesCache())
                     return;
-                
-                try
-                {
+
+                try {
                     File outFile = getProject().file(annot.getValue(task));
-                    if (outFile.exists())
-                    {
+                    if (outFile.exists()) {
                         File hashFile = getHashFile(outFile);
                         Files.write(getHashes(annot, inputList, task), hashFile, Charset.defaultCharset());
                     }
                 }
                 // error? spit it and do the task.
-                catch (Exception e)
-                {
+                catch (Exception e) {
                     e.printStackTrace();
                 }
             }
         });
     }
 
-    private File getHashFile(File file)
-    {
+    private File getHashFile(File file) {
         return new File(file.getParentFile(), file.getName() + ".md5");
     }
 
     @SuppressWarnings("rawtypes")
-    private String getHashes(Annotated output, List<Annotated> inputs, Object instance) throws NoSuchFieldException, IllegalAccessException, NoSuchAlgorithmException
-    {
+    private String getHashes(Annotated output, List<Annotated> inputs, Object instance) throws NoSuchFieldException, IllegalAccessException, NoSuchAlgorithmException {
         ArrayList<String> hashes = new ArrayList<String>();
 
         hashes.add(Constants.hash(getProject().file(output.getValue(instance))));
 
-        for (Annotated input : inputs)
-        {
+        for (Annotated input : inputs) {
             Field f = input.getField();
 
-            if (f.isAnnotationPresent(InputFile.class))
-            {
+            if (f.isAnnotationPresent(InputFile.class)) {
                 hashes.add(Constants.hash(getProject().file(input.getValue(instance))));
-            }
-            else
-            {
+            } else {
                 Object obj = input.getValue(instance);
 
                 if (obj instanceof Closure)
@@ -195,41 +166,34 @@ public abstract class CachedTask extends DefaultTask
 
     @Target(ElementType.FIELD)
     @Retention(RetentionPolicy.RUNTIME)
-    public @interface Cached
-    {
+    public @interface Cached {
     }
 
-    private class Annotated
-    {
+    private class Annotated {
         private final Class<? extends Task> taskClass;
-        private final String                fieldName;
+        private final String fieldName;
 
-        private Annotated(Class<? extends Task> taskClass, String fieldName)
-        {
+        private Annotated(Class<? extends Task> taskClass, String fieldName) {
             this.taskClass = taskClass;
             this.fieldName = fieldName;
         }
 
-        protected Field getField() throws NoSuchFieldException
-        {
+        protected Field getField() throws NoSuchFieldException {
             return taskClass.getDeclaredField(fieldName);
         }
 
-        protected Object getValue(Object instance) throws NoSuchFieldException, IllegalAccessException
-        {
+        protected Object getValue(Object instance) throws NoSuchFieldException, IllegalAccessException {
             Field f = getField();
             f.setAccessible(true);
             return f.get(instance);
         }
     }
 
-    public boolean doesCache()
-    {
+    public boolean doesCache() {
         return doesCache;
     }
 
-    public void setDoesCache(boolean cacheStuff)
-    {
+    public void setDoesCache(boolean cacheStuff) {
         this.doesCache = cacheStuff;
     }
 }

@@ -1,5 +1,15 @@
 package net.minecraftforge.gradle.tasks;
 
+import com.google.common.base.Joiner;
+import com.google.common.io.Files;
+import net.minecraftforge.gradle.common.Constants;
+import net.minecraftforge.gradle.delayed.DelayedFile;
+import net.minecraftforge.gradle.patching.ContextualPatch;
+import net.minecraftforge.gradle.tasks.abstractutil.EditJarTask;
+import org.gradle.api.file.FileCollection;
+import org.gradle.api.logging.LogLevel;
+import org.gradle.api.tasks.InputFiles;
+
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.Charset;
@@ -7,40 +17,24 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import net.minecraftforge.gradle.common.Constants;
-import net.minecraftforge.gradle.delayed.DelayedFile;
-import net.minecraftforge.gradle.patching.ContextualPatch;
-import net.minecraftforge.gradle.tasks.abstractutil.EditJarTask;
-
-import org.gradle.api.file.FileCollection;
-import org.gradle.api.logging.LogLevel;
-import org.gradle.api.tasks.InputFiles;
-
-import com.google.common.base.Joiner;
-import com.google.common.io.Files;
-
-public class PatchJarTask extends EditJarTask
-{
+public class PatchJarTask extends EditJarTask {
     @InputFiles
     private DelayedFile inPatches;
 
     private ContextProvider PROVIDER;
 
     @Override
-    public String asRead(String file)
-    {
+    public String asRead(String file) {
         return file;
     }
-    
+
     @Override
-    public void doStuffBefore() throws Throwable
-    {
+    public void doStuffBefore() throws Throwable {
         PROVIDER = new ContextProvider(sourceMap);
     }
 
     @Override
-    public void doStuffMiddle() throws Throwable
-    {
+    public void doStuffMiddle() throws Throwable {
         getLogger().info("Reading patches");
         ArrayList<ContextualPatch> patches = readPatches(getInPatches());
 
@@ -50,22 +44,17 @@ public class PatchJarTask extends EditJarTask
 
         Throwable failure = null;
 
-        for (ContextualPatch patch : patches)
-        {
+        for (ContextualPatch patch : patches) {
             List<ContextualPatch.PatchReport> errors = patch.patch(false);
-            for (ContextualPatch.PatchReport report : errors)
-            {
+            for (ContextualPatch.PatchReport report : errors) {
                 // catch failed patches
-                if (!report.getStatus().isSuccess())
-                {
+                if (!report.getStatus().isSuccess()) {
                     getLogger().log(LogLevel.ERROR, "Patching failed: " + PROVIDER.strip(report.getTarget()) + " " + report.getFailure().getMessage());
 
                     // now spit the hunks
-                    for (ContextualPatch.HunkReport hunk : report.getHunks())
-                    {
+                    for (ContextualPatch.HunkReport hunk : report.getHunks()) {
                         // catch the failed hunks
-                        if (!hunk.getStatus().isSuccess())
-                        {
+                        if (!hunk.getStatus().isSuccess()) {
                             getLogger().error("Hunk " + hunk.getHunkID() + " failed! " + (hunk.getFailure() != null ? hunk.getFailure().getMessage() : ""));
                         }
                     }
@@ -73,20 +62,17 @@ public class PatchJarTask extends EditJarTask
                     if (failure == null) failure = report.getFailure();
                 }
                 // catch fuzzed patches
-                else if (report.getStatus() == ContextualPatch.PatchStatus.Fuzzed)
-                {
+                else if (report.getStatus() == ContextualPatch.PatchStatus.Fuzzed) {
                     getLogger().log(LogLevel.INFO, "Patching fuzzed: " + PROVIDER.strip(report.getTarget()));
 
                     // set the boolean for later use
                     fuzzed = true;
 
                     // now spit the hunks
-                    for (ContextualPatch.HunkReport hunk : report.getHunks())
-                    {
+                    for (ContextualPatch.HunkReport hunk : report.getHunks()) {
                         // catch the failed hunks
-                        if (!hunk.getStatus().isSuccess())
-                        {
-                            getLogger().info("Hunk " + hunk.getHunkID() + " fuzzed " + hunk.getFuzz()+"!");
+                        if (!hunk.getStatus().isSuccess()) {
+                            getLogger().info("Hunk " + hunk.getHunkID() + " fuzzed " + hunk.getFuzz() + "!");
                         }
                     }
 
@@ -94,32 +80,26 @@ public class PatchJarTask extends EditJarTask
                 }
 
                 // sucesful patches
-                else
-                {
+                else {
                     getLogger().info("Patch succeeded: " + PROVIDER.strip(report.getTarget()));
                 }
             }
         }
 
-        if (fuzzed)
-        {
+        if (fuzzed) {
             getLogger().lifecycle("Patches Fuzzed!");
         }
 
-        if (failure != null)
-        {
+        if (failure != null) {
             throw failure;
         }
     }
 
-    private ArrayList<ContextualPatch> readPatches(FileCollection patchFiles) throws IOException
-    {
+    private ArrayList<ContextualPatch> readPatches(FileCollection patchFiles) throws IOException {
         ArrayList<ContextualPatch> patches = new ArrayList<ContextualPatch>();
 
-        for (File file : patchFiles.getFiles())
-        {
-            if (file.getPath().endsWith(".patch"))
-            {
+        for (File file : patchFiles.getFiles()) {
+            if (file.getPath().endsWith(".patch")) {
                 patches.add(readPatch(file));
             }
         }
@@ -127,8 +107,7 @@ public class PatchJarTask extends EditJarTask
         return patches;
     }
 
-    public ContextualPatch readPatch(File file) throws IOException
-    {
+    public ContextualPatch readPatch(File file) throws IOException {
         getLogger().debug("Reading patch file: " + file);
         return ContextualPatch.create(Files.toString(file, Charset.defaultCharset()), PROVIDER).setAccessC14N(true).setMaxFuzz(0);
     }
@@ -136,39 +115,32 @@ public class PatchJarTask extends EditJarTask
     /**
      * A private inner class to be used with the FmlPatches
      */
-    private class ContextProvider implements ContextualPatch.IContextProvider
-    {
+    private class ContextProvider implements ContextualPatch.IContextProvider {
         private Map<String, String> fileMap;
 
         private final int STRIP = 3;
 
-        public ContextProvider(Map<String, String> fileMap)
-        {
+        public ContextProvider(Map<String, String> fileMap) {
             this.fileMap = fileMap;
         }
 
-        public String strip(String target)
-        {
+        public String strip(String target) {
             target = target.replace('\\', '/');
             int index = 0;
-            for (int x = 0; x < STRIP; x++)
-            {
+            for (int x = 0; x < STRIP; x++) {
                 index = target.indexOf('/', index) + 1;
             }
             return target.substring(index);
         }
 
         @Override
-        public List<String> getData(String target)
-        {
+        public List<String> getData(String target) {
             target = strip(target);
 
-            if (fileMap.containsKey(target))
-            {
+            if (fileMap.containsKey(target)) {
                 String[] lines = fileMap.get(target).split("\r\n|\r|\n");
                 List<String> ret = new ArrayList<String>();
-                for (String line : lines)
-                {
+                for (String line : lines) {
                     ret.add(line);
                 }
                 return ret;
@@ -178,15 +150,13 @@ public class PatchJarTask extends EditJarTask
         }
 
         @Override
-        public void setData(String target, List<String> data)
-        {
+        public void setData(String target, List<String> data) {
             target = strip(target);
             fileMap.put(target, Joiner.on(Constants.NEWLINE).join(data));
         }
     }
 
-    public FileCollection getInPatches()
-    {
+    public FileCollection getInPatches() {
         File file = inPatches.call();
         if (file.isDirectory())
             return getProject().fileTree(file);
@@ -198,15 +168,13 @@ public class PatchJarTask extends EditJarTask
             return getProject().files(file);
     }
 
-    public void setInPatches(DelayedFile inPatches)
-    {
+    public void setInPatches(DelayedFile inPatches) {
         this.inPatches = inPatches;
     }
 
     @Override
-    public void doStuffAfter() throws Throwable
-    {
+    public void doStuffAfter() throws Throwable {
         // TODO Auto-generated method stub
-        
+
     }
 }

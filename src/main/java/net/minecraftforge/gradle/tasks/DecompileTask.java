@@ -1,13 +1,11 @@
 package net.minecraftforge.gradle.tasks;
 
 import argo.saj.InvalidSyntaxException;
-
 import com.github.abrarsyed.jastyle.ASFormatter;
 import com.github.abrarsyed.jastyle.OptParser;
 import com.google.common.base.Joiner;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Files;
-
 import groovy.lang.Closure;
 import net.minecraftforge.gradle.common.Constants;
 import net.minecraftforge.gradle.delayed.DelayedFile;
@@ -17,7 +15,6 @@ import net.minecraftforge.gradle.sourcemanip.FmlCleanup;
 import net.minecraftforge.gradle.sourcemanip.GLConstantFixer;
 import net.minecraftforge.gradle.sourcemanip.McpCleanup;
 import net.minecraftforge.gradle.tasks.abstractutil.CachedTask;
-
 import org.gradle.api.logging.LogLevel;
 import org.gradle.api.tasks.InputFile;
 import org.gradle.api.tasks.OutputFile;
@@ -35,8 +32,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
 
-public class DecompileTask extends CachedTask
-{
+public class DecompileTask extends CachedTask {
     @InputFile
     private DelayedFile inJar;
 
@@ -53,18 +49,17 @@ public class DecompileTask extends CachedTask
     @Cached
     private DelayedFile outJar;
 
-    private HashMap<String, String> sourceMap   = new HashMap<String, String>();
+    private HashMap<String, String> sourceMap = new HashMap<String, String>();
     private HashMap<String, byte[]> resourceMap = new HashMap<String, byte[]>();
-    
+
     private static final Pattern BEFORE = Pattern.compile("(?m)((case|default).+(?:\\r\\n|\\r|\\n))(?:\\r\\n|\\r|\\n)");
-    private static final Pattern AFTER  = Pattern.compile("(?m)(?:\\r\\n|\\r|\\n)((?:\\r\\n|\\r|\\n)[ \\t]+(case|default))");
+    private static final Pattern AFTER = Pattern.compile("(?m)(?:\\r\\n|\\r|\\n)((?:\\r\\n|\\r|\\n)[ \\t]+(case|default))");
 
     /**
      * This method outputs to the cleanSrc
      */
     @TaskAction
-    protected void doMCPStuff() throws Throwable
-    {
+    protected void doMCPStuff() throws Throwable {
         // define files.
         File temp = new File(getTemporaryDir(), getInJar().getName());
 
@@ -84,14 +79,11 @@ public class DecompileTask extends CachedTask
         saveJar(getOutJar());
     }
 
-    private void decompile(final File inJar, final File outJar, final File fernFlower)
-    {
-        getProject().javaexec(new Closure<JavaExecSpec>(this)
-        {
+    private void decompile(final File inJar, final File outJar, final File fernFlower) {
+        getProject().javaexec(new Closure<JavaExecSpec>(this) {
             private static final long serialVersionUID = 4608694547855396167L;
 
-            public JavaExecSpec call()
-            {
+            public JavaExecSpec call() {
                 JavaExecSpec exec = (JavaExecSpec) getDelegate();
 
                 exec.args(
@@ -115,35 +107,28 @@ public class DecompileTask extends CachedTask
                 return exec;
             }
 
-            public JavaExecSpec call(Object obj)
-            {
+            public JavaExecSpec call(Object obj) {
                 return call();
             }
         });
     }
 
-    private void readJarAndFix(final File jar) throws IOException
-    {
+    private void readJarAndFix(final File jar) throws IOException {
         // begin reading jar
         final ZipInputStream zin = new ZipInputStream(new FileInputStream(jar));
         ZipEntry entry = null;
         String fileStr;
 
-        while ((entry = zin.getNextEntry()) != null)
-        {
+        while ((entry = zin.getNextEntry()) != null) {
             // no META or dirs. wel take care of dirs later.
-            if (entry.getName().contains("META-INF"))
-            {
+            if (entry.getName().contains("META-INF")) {
                 continue;
             }
 
             // resources or directories.
-            if (entry.isDirectory() || !entry.getName().endsWith(".java"))
-            {
+            if (entry.isDirectory() || !entry.getName().endsWith(".java")) {
                 resourceMap.put(entry.getName(), ByteStreams.toByteArray(zin));
-            }
-            else
-            {
+            } else {
                 // source!
                 fileStr = new String(ByteStreams.toByteArray(zin), Charset.defaultCharset());
 
@@ -157,54 +142,45 @@ public class DecompileTask extends CachedTask
         zin.close();
     }
 
-    private void applyMcpPatches(File patchFile) throws Throwable
-    {
+    private void applyMcpPatches(File patchFile) throws Throwable {
         ContextualPatch patch = ContextualPatch.create(Files.toString(patchFile, Charset.defaultCharset()), new ContextProvider(sourceMap));
 
         boolean fuzzed = false;
 
         List<ContextualPatch.PatchReport> errors = patch.patch(false);
-        for (ContextualPatch.PatchReport report : errors)
-        {
+        for (ContextualPatch.PatchReport report : errors) {
             // catch failed patches
-            if (!report.getStatus().isSuccess())
-            {
+            if (!report.getStatus().isSuccess()) {
                 getLogger().log(LogLevel.ERROR, "Patching failed: " + report.getTarget(), report.getFailure());
 
                 // now spit the hunks
-                for (ContextualPatch.HunkReport hunk : report.getHunks())
-                {
+                for (ContextualPatch.HunkReport hunk : report.getHunks()) {
                     // catch the failed hunks
-                    if (!hunk.getStatus().isSuccess())
-                    {
-                        getLogger().error("Hunk "+hunk.getHunkID()+" failed!");
+                    if (!hunk.getStatus().isSuccess()) {
+                        getLogger().error("Hunk " + hunk.getHunkID() + " failed!");
                     }
                 }
 
                 throw report.getFailure();
             }
             // catch fuzzed patches
-            else if (report.getStatus() == ContextualPatch.PatchStatus.Fuzzed)
-            {
+            else if (report.getStatus() == ContextualPatch.PatchStatus.Fuzzed) {
                 getLogger().log(LogLevel.INFO, "Patching fuzzed: " + report.getTarget(), report.getFailure());
 
                 // set the boolean for later use
                 fuzzed = true;
 
                 // now spit the hunks
-                for (ContextualPatch.HunkReport hunk : report.getHunks())
-                {
+                for (ContextualPatch.HunkReport hunk : report.getHunks()) {
                     // catch the failed hunks
-                    if (!hunk.getStatus().isSuccess())
-                    {
-                        getLogger().info("Hunk "+hunk.getHunkID()+" fuzzed "+hunk.getFuzz()+"!");
+                    if (!hunk.getStatus().isSuccess()) {
+                        getLogger().info("Hunk " + hunk.getHunkID() + " fuzzed " + hunk.getFuzz() + "!");
                     }
                 }
             }
 
             // sucesful patches
-            else
-            {
+            else {
                 getLogger().info("Patch succeeded: " + report.getTarget());
             }
         }
@@ -213,8 +189,7 @@ public class DecompileTask extends CachedTask
             getLogger().lifecycle("Patches Fuzzed!");
     }
 
-    private void applyMcpCleanup(File conf) throws IOException, InvalidSyntaxException
-    {
+    private void applyMcpCleanup(File conf) throws IOException, InvalidSyntaxException {
         ASFormatter formatter = new ASFormatter();
         OptParser parser = new OptParser(formatter);
         parser.parseOptionFile(conf);
@@ -224,8 +199,7 @@ public class DecompileTask extends CachedTask
 
         GLConstantFixer fixer = new GLConstantFixer();
 
-        for (String file : sourceMap.keySet())
-        {
+        for (String file : sourceMap.keySet()) {
             String text = sourceMap.get(file);
 
             getLogger().debug("Processing file: " + file);
@@ -250,7 +224,7 @@ public class DecompileTask extends CachedTask
             writer.flush();
             writer.close();
             text = writer.toString();
-            
+
             getLogger().debug("applying FML transformations");
             text = BEFORE.matcher(text).replaceAll("$1");
             text = AFTER.matcher(text).replaceAll("$1");
@@ -260,21 +234,18 @@ public class DecompileTask extends CachedTask
         }
     }
 
-    private void saveJar(File output) throws IOException
-    {
+    private void saveJar(File output) throws IOException {
         ZipOutputStream zout = new ZipOutputStream(new FileOutputStream(output));
 
         // write in resources
-        for (Map.Entry<String, byte[]> entry : resourceMap.entrySet())
-        {
+        for (Map.Entry<String, byte[]> entry : resourceMap.entrySet()) {
             zout.putNextEntry(new ZipEntry(entry.getKey()));
             zout.write(entry.getValue());
             zout.closeEntry();
         }
 
         // write in sources
-        for (Map.Entry<String, String> entry : sourceMap.entrySet())
-        {
+        for (Map.Entry<String, String> entry : sourceMap.entrySet()) {
             zout.putNextEntry(new ZipEntry(entry.getKey()));
             zout.write(entry.getValue().getBytes());
             zout.closeEntry();
@@ -283,112 +254,91 @@ public class DecompileTask extends CachedTask
         zout.close();
     }
 
-    public HashMap<String, String> getSourceMap()
-    {
+    public HashMap<String, String> getSourceMap() {
         return sourceMap;
     }
 
-    public void setSourceMap(HashMap<String, String> sourceMap)
-    {
+    public void setSourceMap(HashMap<String, String> sourceMap) {
         this.sourceMap = sourceMap;
     }
 
-    public File getAstyleConfig()
-    {
+    public File getAstyleConfig() {
         return astyleConfig.call();
     }
 
-    public void setAstyleConfig(DelayedFile astyleConfig)
-    {
+    public void setAstyleConfig(DelayedFile astyleConfig) {
         this.astyleConfig = astyleConfig;
     }
 
-    public File getFernFlower()
-    {
+    public File getFernFlower() {
         return fernFlower.call();
     }
 
-    public void setFernFlower(DelayedFile fernFlower)
-    {
+    public void setFernFlower(DelayedFile fernFlower) {
         this.fernFlower = fernFlower;
     }
 
-    public File getInJar()
-    {
+    public File getInJar() {
         return inJar.call();
     }
 
-    public void setInJar(DelayedFile inJar)
-    {
+    public void setInJar(DelayedFile inJar) {
         this.inJar = inJar;
     }
 
-    public File getOutJar()
-    {
+    public File getOutJar() {
         return outJar.call();
     }
 
-    public void setOutJar(DelayedFile outJar)
-    {
+    public void setOutJar(DelayedFile outJar) {
         this.outJar = outJar;
     }
 
-    public File getPatch()
-    {
+    public File getPatch() {
         return patch.call();
     }
 
-    public void setPatch(DelayedFile patch)
-    {
+    public void setPatch(DelayedFile patch) {
         this.patch = patch;
     }
 
-    public HashMap<String, byte[]> getResourceMap()
-    {
+    public HashMap<String, byte[]> getResourceMap() {
         return resourceMap;
     }
 
-    public void setResourceMap(HashMap<String, byte[]> resourceMap)
-    {
+    public void setResourceMap(HashMap<String, byte[]> resourceMap) {
         this.resourceMap = resourceMap;
     }
 
     /**
      * A private inner class to be used with the MCPPatches only.
      */
-    private class ContextProvider implements ContextualPatch.IContextProvider
-    {
+    private class ContextProvider implements ContextualPatch.IContextProvider {
         private Map<String, String> fileMap;
 
         private final int STRIP = 1;
 
-        public ContextProvider(Map<String, String> fileMap)
-        {
+        public ContextProvider(Map<String, String> fileMap) {
             this.fileMap = fileMap;
         }
 
-        private String strip(String target)
-        {
+        private String strip(String target) {
             target = target.replace('\\', '/');
             int index = 0;
-            for (int x = 0; x < STRIP; x++)
-            {
+            for (int x = 0; x < STRIP; x++) {
                 index = target.indexOf('/', index) + 1;
             }
             return target.substring(index);
         }
 
         @Override
-        public List<String> getData(String target)
-        {
+        public List<String> getData(String target) {
             target = strip(target);
 
-            if (fileMap.containsKey(target))
-            {
+            if (fileMap.containsKey(target)) {
                 String[] lines = fileMap.get(target).split("\r\n|\r|\n");
                 List<String> ret = new ArrayList<String>();
-                for (String line : lines)
-                {
+                for (String line : lines) {
                     ret.add(line);
                 }
                 return ret;
@@ -398,8 +348,7 @@ public class DecompileTask extends CachedTask
         }
 
         @Override
-        public void setData(String target, List<String> data)
-        {
+        public void setData(String target, List<String> data) {
             fileMap.put(strip(target), Joiner.on(Constants.NEWLINE).join(data));
         }
     }
